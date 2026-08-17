@@ -181,14 +181,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (seamen.length < 2) {
             if (bannerIcon) bannerIcon.textContent = '➕';
-            bannerTitle.textContent = `GOAL: INTRODUCE A SPECIES MATE`;
-            bannerDesc.textContent = `Use "INTRODUCE SPECIES" in the side panel to add an adult Anglerfish, Goldfish, or Piranha partner!`;
+            setPipelineActiveStep('stepFeed');
+            bannerDesc.textContent = `Earn Research Points to buy a mate species in the side panel (300+ PTS)!`;
             return;
         }
 
         // Standard Default Guidance
         if (bannerIcon) bannerIcon.textContent = '🎯';
-        bannerTitle.textContent = `DYNASTY GENERATION ${currentGeneration} OF 5`;
         bannerDesc.textContent = `Keep water clean and O2 high. Feed fish pellets so they grow from Fry to Elder stage!`;
     }
 
