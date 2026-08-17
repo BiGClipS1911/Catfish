@@ -221,21 +221,21 @@ class Seaman {
         const effectiveAge = this.ageSeconds * growthMult;
         const prevStage = this.stage;
 
-        if (effectiveAge < 25) {
-            this.stage = 0; // Egg Sac
-            this.baseSize = 20;
-        } else if (effectiveAge < 75) {
-            this.stage = 1; // Larva Fry
-            this.baseSize = 26 + (effectiveAge - 25) * 0.15;
-        } else if (effectiveAge < 160) {
+        if (effectiveAge < 6) {
+            this.stage = 0; // Egg Sac (Hatches in 6 seconds!)
+            this.baseSize = 22;
+        } else if (effectiveAge < 50) {
+            this.stage = 1; // Larva Fry (Swimming Baby Fish!)
+            this.baseSize = 28 + (effectiveAge - 6) * 0.15;
+        } else if (effectiveAge < 130) {
             this.stage = 2; // Tadpole
-            this.baseSize = 34 + (effectiveAge - 75) * 0.1;
-        } else if (effectiveAge < 320) {
+            this.baseSize = 36 + (effectiveAge - 50) * 0.1;
+        } else if (effectiveAge < 260) {
             this.stage = 3; // Adult Catfish
-            this.baseSize = 42 + (effectiveAge - 160) * 0.05;
+            this.baseSize = 44 + (effectiveAge - 130) * 0.05;
         } else {
             this.stage = 4; // Elder Frog-Fish
-            this.baseSize = 50;
+            this.baseSize = 52;
         }
 
         // Trigger evolution reward event when fish progresses to next life stage
@@ -570,6 +570,7 @@ class Seaman {
         if (this.stage === 0) {
             this.drawEggStage(ctx);
             ctx.restore();
+            this.drawHealthBarOverlay(ctx, 28);
             return;
         }
 
@@ -765,8 +766,14 @@ class Seaman {
         }
 
         let statusTxt = `${this.speciesInfo.icon} ${this.name} (${Math.round(this.ageSeconds)}s)`;
-        if (this.decayStage === 1) statusTxt = `💀 ${this.name} (FRESH DEAD)`;
-        if (this.decayStage === 2) statusTxt = `☣️ ${this.name} (ROTTING CORPSE)`;
+        if (this.stage === 0) {
+            const hatchLeft = Math.max(0, Math.ceil(6 - this.ageSeconds));
+            statusTxt = `🥚 ${this.name} (Hatching in ${hatchLeft}s...)`;
+        } else if (this.decayStage === 1) {
+            statusTxt = `💀 ${this.name} (FRESH DEAD)`;
+        } else if (this.decayStage === 2) {
+            statusTxt = `☣️ ${this.name} (ROTTING CORPSE)`;
+        }
 
         ctx.fillStyle = this.isDead ? '#e74c3c' : 'rgba(78, 205, 196, 0.95)';
         ctx.font = `${this.isBaby ? '10px' : '11px'} 'Share Tech Mono'`;
@@ -792,25 +799,31 @@ class Seaman {
         const x = this.x;
         const y = this.y;
         
-        const pulse = 1 + Math.sin(this.tailPhase * 0.8) * 0.05;
-        const radius = (this.isBaby ? 22 : 30) * pulse * this.headScaleAnim;
+        const pulse = 1 + Math.sin(this.tailPhase * 1.5) * 0.08;
+        const radius = (this.isBaby ? 26 : 34) * pulse * this.headScaleAnim;
 
         ctx.save();
+        // Bright glowing aura ring around egg
+        ctx.fillStyle = 'rgba(78, 205, 196, 0.25)';
+        ctx.beginPath();
+        ctx.arc(x, y, radius * 1.35, 0, Math.PI * 2);
+        ctx.fill();
+
         // Translucent glowing egg yolk / embryonic membrane
         const grad = ctx.createRadialGradient(x - radius * 0.2, y - radius * 0.2, radius * 0.1, x, y, radius);
-        grad.addColorStop(0, 'rgba(255, 230, 150, 0.95)');
-        grad.addColorStop(0.5, 'rgba(243, 156, 18, 0.85)');
-        grad.addColorStop(0.85, 'rgba(211, 84, 0, 0.7)');
-        grad.addColorStop(1, 'rgba(211, 84, 0, 0)');
+        grad.addColorStop(0, '#ffeaa7');
+        grad.addColorStop(0.5, '#fdcb6e');
+        grad.addColorStop(0.85, '#e17055');
+        grad.addColorStop(1, 'rgba(225, 112, 85, 0.4)');
 
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Membrane border glow
-        ctx.strokeStyle = 'rgba(243, 156, 18, 0.6)';
-        ctx.lineWidth = 2;
+        // Glowing membrane border
+        ctx.strokeStyle = '#fdcb6e';
+        ctx.lineWidth = 2.5;
         ctx.stroke();
 
         // Cute baby face inside egg
