@@ -17,10 +17,16 @@ class MultiplayerManager {
         this.syncInterval = null;
     }
 
+    getServerUrl(path = '') {
+        const baseUrl = window.CATFISH_SERVER_URL || '';
+        return baseUrl ? `${baseUrl.replace(/\/$/, '')}${path}` : path;
+    }
+
     init() {
         if (typeof io !== 'undefined') {
             try {
-                this.socket = io();
+                const serverUrl = window.CATFISH_SERVER_URL || undefined;
+                this.socket = io(serverUrl);
                 this.setupSocketListeners();
             } catch (e) {
                 console.warn('Socket.io connection failed, operating in local offline mode:', e);
@@ -173,7 +179,7 @@ class MultiplayerManager {
 
     async fetchLeaderboard() {
         try {
-            const res = await fetch('/api/leaderboard');
+            const res = await fetch(this.getServerUrl('/api/leaderboard'));
             if (res.ok) {
                 const data = await res.json();
                 this.leaderboardCache = data;
@@ -193,7 +199,7 @@ class MultiplayerManager {
         };
 
         try {
-            const res = await fetch('/api/leaderboard', {
+            const res = await fetch(this.getServerUrl('/api/leaderboard'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
