@@ -13,21 +13,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     const faceParent2 = new FaceProcessor('seaman_face2.png');
     await faceParent2.init();
 
+    let parentA = new Seaman(faceParent1, 'Catfish Alpha', 3, false, null, 'catfish');
+    parentA.x = 320;
+    parentA.y = 260;
+
+    let parentB = new Seaman(faceParent2, 'Goldfish Beta', 3, false, null, 'goldfish');
+    parentB.x = 480;
+    parentB.y = 310;
+
     let initialEgg = new Seaman(faceParent1, 'Catfish Embryo Gen 1', 0, true, [], 'catfish');
     initialEgg.x = 400;
     initialEgg.y = 510;
 
-    let seamen = [initialEgg];
+    let seamen = [parentA, parentB, initialEgg];
     let familyTree = [];
 
     let currentGeneration = 1;
-    let researchPoints = 150; // Starting capital for new aquarists
+    let researchPoints = 300; // Starting capital for new aquarists
     let totalFishReleased = 0;
-    let selectedFish = initialEgg;
+    let selectedFish = parentA;
     let isMultiplayerMode = false;
 
     const tank = new Tank(800, 600);
-    const dialogue = new DialogueEngine(initialEgg, tank);
+    const dialogue = new DialogueEngine(parentA, tank);
     const audio = new GameAudio();
     window.gameAudio = audio;
 
@@ -471,17 +479,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         tank.poops = [];
         tank.initDirt();
 
-        researchPoints = 150;
+        researchPoints = 300;
+        parentA = new Seaman(faceParent1, 'Catfish Alpha', 3, false, null, 'catfish');
+        parentA.x = 320;
+        parentA.y = 260;
+
+        parentB = new Seaman(faceParent2, 'Goldfish Beta', 3, false, null, 'goldfish');
+        parentB.x = 480;
+        parentB.y = 310;
+
         initialEgg = new Seaman(faceParent1, 'Catfish Embryo Gen 1', 0, true, [], 'catfish');
         initialEgg.x = 400;
         initialEgg.y = 510;
 
-        seamen = [initialEgg];
-        selectedFish = initialEgg;
+        seamen = [parentA, parentB, initialEgg];
+        selectedFish = parentA;
 
         updateGauges();
-        dialogue.speak("Catfish simulation restarted! Your new egg sac is incubating.");
-        multiplayer.showToast("🔄 Tank restarted with 1 Egg Sac (150 PTS).");
+        updateTargetFishDropdown();
+        dialogue.speak("Catfish simulation restarted! Keep your fish fed and clean!");
+        multiplayer.showToast("🔄 Tank restarted with Catfish Alpha & Goldfish Beta.");
         multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
     }
 
