@@ -141,7 +141,8 @@ class MultiplayerManager {
             name: this.playerName,
             fish: simplifiedFish,
             points: this.app.researchPoints || 0,
-            generation: this.app.currentGeneration || 1
+            generation: this.app.currentGeneration || 1,
+            released: this.app.totalFishReleased || 0
         });
     }
 
@@ -163,7 +164,8 @@ class MultiplayerManager {
         this.socket.emit('sync_fish_state', {
             fish: simplifiedFish,
             points: this.app.researchPoints || 0,
-            generation: this.app.currentGeneration || 1
+            generation: this.app.currentGeneration || 1,
+            released: this.app.totalFishReleased || 0
         });
     }
 
@@ -319,6 +321,7 @@ class MultiplayerManager {
                 localStorage.setItem('catfish_player_name', this.playerName);
                 this.showToast(`Handle updated to: ${this.playerName}`);
                 this.joinLobby();
+                this.submitScore(this.app.researchPoints || 0, this.app.currentGeneration || 1, this.app.totalFishReleased || 0);
                 const nameDisplay = document.getElementById('aquaristHandleDisplay');
                 if (nameDisplay) nameDisplay.textContent = this.playerName;
             }

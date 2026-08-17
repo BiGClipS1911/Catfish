@@ -56,6 +56,44 @@ function saveLeaderboard(board) {
     }
 }
 
+// Helper: Add or Update Leaderboard Entry in Real-Time
+function updateOrAddLeaderboardEntry(name, points = 0, generation = 1, released = 0) {
+    if (!name || !name.trim()) return getLeaderboard();
+
+    const cleanName = name.trim().substring(0, 24);
+    const currentBoard = getLeaderboard();
+    const existingIndex = currentBoard.findIndex(entry => entry.name.toLowerCase() === cleanName.toLowerCase());
+
+    const entryData = {
+        name: cleanName,
+        points: Math.max(0, Math.floor(points)),
+        generation: Math.max(1, generation || 1),
+        released: Math.max(0, released || 0),
+        date: new Date().toISOString().split('T')[0]
+    };
+
+    let boardChanged = false;
+    if (existingIndex >= 0) {
+        if (entryData.points >= currentBoard[existingIndex].points) {
+            currentBoard[existingIndex] = {
+                ...currentBoard[existingIndex],
+                ...entryData
+            };
+            boardChanged = true;
+        }
+    } else {
+        currentBoard.push(entryData);
+        boardChanged = true;
+    }
+
+    if (boardChanged) {
+        const updatedBoard = saveLeaderboard(currentBoard);
+        io.emit('leaderboard_update', updatedBoard);
+        return updatedBoard;
+    }
+    return currentBoard;
+}
+
 // REST APIs
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', onlinePlayers: Object.keys(players).length, timestamp: new Date().toISOString() });
@@ -67,32 +105,10 @@ app.get('/api/leaderboard', (req, res) => {
 
 app.post('/api/leaderboard', (req, res) => {
     const { name, points, generation, released } = req.body;
-    if (!name || typeof points !== 'number') {
+    if (!name) {
         return res.status(400).json({ error: 'Invalid score submission payload' });
     }
-
-    const currentBoard = getLeaderboard();
-    const existingIndex = currentBoard.findIndex(entry => entry.name.toLowerCase() === name.toLowerCase());
-
-    const entryData = {
-        name: name.substring(0, 24),
-        points: Math.max(0, Math.floor(points)),
-        generation: Math.max(1, generation || 1),
-        released: Math.max(0, released || 0),
-        date: new Date().toISOString().split('T')[0]
-    };
-
-    if (existingIndex >= 0) {
-        // Only update if higher score
-        if (entryData.points > currentBoard[existingIndex].points) {
-            currentBoard[existingIndex] = entryData;
-        }
-    } else {
-        currentBoard.push(entryData);
-    }
-
-    const updatedBoard = saveLeaderboard(currentBoard);
-    io.emit('leaderboard_update', updatedBoard);
+    const updatedBoard = updateOrAddLeaderboardEntry(name, points || 0, generation || 1, released || 0);
     res.json({ success: true, leaderboard: updatedBoard });
 });
 
@@ -119,6 +135,14 @@ io.on('connection', (socket) => {
 
         console.log(`🌊 ${players[socket.id].name} joined global aquarium lobby.`);
 
+        // Immediately add/update player on real-time leaderboard
+        updateOrAddLeaderboardEntry(
+            players[socket.id].name,
+            players[socket.id].points,
+            players[socket.id].generation,
+            playerData.released || 0
+        );
+
         // Notify caller of current active room state
         socket.emit('lobby_state', {
             players: Object.values(players)
@@ -135,6 +159,14 @@ io.on('connection', (socket) => {
             players[socket.id].fish = data.fish;
             players[socket.id].points = data.points;
             players[socket.id].generation = data.generation;
+
+            // Sync score & stats to real-time leaderboard
+            updateOrAddLeaderboardEntry(
+                players[socket.id].name,
+                data.points,
+                data.generation,
+                data.released || 0
+            );
 
             socket.broadcast.emit('remote_fish_update', {
                 playerId: socket.id,

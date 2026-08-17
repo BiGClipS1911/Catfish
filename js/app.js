@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         get seamen() { return seamen; },
         get researchPoints() { return researchPoints; },
         get currentGeneration() { return currentGeneration; },
+        get totalFishReleased() { return totalFishReleased; },
         get isMultiplayerMode() { return isMultiplayerMode; }
     };
 
