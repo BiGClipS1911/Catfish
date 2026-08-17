@@ -1,0 +1,28 @@
+{
+  "name": "catfish-evolution-multiplayer",
+  "version": "1.0.0",
+  "description": "CATFISH - Evolutionary Breeding & Aquatic Simulation with Real-time Multiplayer & Leaderboards",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "virtual-pet",
+    "catfish",
+    "simulation",
+    "multiplayer",
+    "socketio",
+    "railway"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

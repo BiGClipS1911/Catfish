@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Aquarist Prime",
+    "points": 5500,
+    "generation": 5,
+    "released": 4,
+    "date": "2026-08-12"
+  },
+  {
+    "name": "Dr. Seaman",
+    "points": 4200,
+    "generation": 4,
+    "released": 3,
+    "date": "2026-08-12"
+  },
+  {
+    "name": "Oceanic Master",
+    "points": 3100,
+    "generation": 3,
+    "released": 2,
+    "date": "2026-08-11"
+  },
+  {
+    "name": "AquaBreeder99",
+    "points": 2400,
+    "generation": 3,
+    "released": 2,
+    "date": "2026-08-10"
+  },
+  {
+    "name": "Catfish Explorer",
+    "points": 1500,
+    "generation": 2,
+    "released": 1,
+    "date": "2026-08-09"
+  }
+]

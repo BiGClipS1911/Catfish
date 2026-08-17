@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CATFISH - Evolutionary Breeding, Aquatic Simulation & Multiplayer</title>
+    <meta name="description" content="An evolutionary virtual pet simulation game. Feed, oxygenate, control temperature, breed 5 generations of Catfish and exotic fish species, clean fish poop, and compete on global multiplayer leaderboards!">
+    <link rel="stylesheet" href="style.css">
+    <!-- Socket.io Real-time Client Library -->
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+
+    <!-- Header Navigation & Quest Bar -->
+    <header class="game-header">
+        <div class="brand">
+            <h1 class="brand-title">CATFISH</h1>
+            <span class="brand-subtitle">EVOLUTION PROGRAM</span>
+            <span id="onlineStatusBadge" class="status-badge">🟢 Online Server</span>
+        </div>
+
+        <div class="quest-bar">
+            <div class="quest-item">
+                <span class="quest-label">DYNASTY:</span>
+                <span id="genDisplay" class="quest-val">Gen 1</span>
+            </div>
+            <div class="quest-item">
+                <span class="quest-label">RESEARCH:</span>
+                <span id="pointsDisplay" class="quest-val">0 PTS</span>
+            </div>
+            <div class="quest-item header-leaderboard-snippet">
+                <span id="headerTopScore" class="quest-val" style="color: var(--neon-cyan);">🏆 Leaderboard Loading...</span>
+            </div>
+        </div>
+
+        <div class="header-controls">
+            <button id="openTutorialBtn" class="hdr-btn highlight-btn" title="View Game Objective, Controls & Tutorial">❓ How to Play</button>
+            <button id="openLeaderboardBtn" class="hdr-btn" title="View Global Multiplayer Leaderboard Rankings">🏆 Leaderboard</button>
+            <button id="openFaceStudio" class="hdr-btn" title="Customize Fish Face Photo & Parameters">👤 Face Studio</button>
+            <button id="muteBtn" class="hdr-btn" title="Toggle Sound FX and Voice TTS">🔊 Sound ON</button>
+        </div>
+    </header>
+
+    <!-- Toast Notification Overlay Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Main Workspace Container -->
+    <main class="app-container">
+        
+        <!-- Tank Viewport Section -->
+        <section class="tank-viewport">
+            
+            <!-- Dynamic Mission & Gameplay Guidance Banner -->
+            <div id="missionBanner" class="mission-banner">
+                <div class="mission-icon">🎯</div>
+                <div class="mission-content">
+                    <div class="mission-title">OBJECTIVE: EVOLVE & RELEASE 5 GENERATIONS</div>
+                    <div id="missionDesc" class="mission-desc">Keep O2 > 60% and cleanliness high! Feed pellets to grow your Catfish to Stage 4 Adult, then initiate Mating Ritual!</div>
+                </div>
+                <button id="toggleMultiplayerBtn" class="multiplayer-toggle-btn" title="Toggle between single-player and global online lobby">🌐 Lobby: Solo</button>
+            </div>
+
+            <!-- Floating Canvas Toolbar -->
+            <div class="canvas-toolbar">
+                <button class="tool-btn active" data-tool="hand" id="toolHand" title="Hand Tool: Click or tap glass to attract fish, or click fish to inspect & zoom face">✋ Hand / Tap Glass</button>
+                <button class="tool-btn" data-tool="feed" id="toolFeed" title="Feed Pellets: Click anywhere in the tank to drop nutrition pellets for hungry fish">🟢 Feed Pellets</button>
+                <button class="tool-btn" data-tool="love" id="toolLove" title="Love Aphrodisiac: Drop breeding aphrodisiacs and trigger mating ritual when 2 adults are present">💖 Love Aphrodisiac</button>
+                <button class="tool-btn" data-tool="squeegee" id="toolClean" title="Clean Tank: Drag or click to scrub dirty substrate, clear fish poop (💩), and scoop bones">🧹 Clean Poop & Bones</button>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+        </section>
+
+        <!-- VMU Side Control Panel -->
+        <aside class="vmu-dashboard">
+
+            <!-- Card 1: Selected Creature Inspector -->
+            <div class="dash-card inspector-card">
+                <div class="card-title">
+                    <span>CREATURE INSPECTOR</span>
+                    <span id="selectedFishStage" class="stage-tag">Adult Catfish</span>
+                </div>
+                
+                <div class="inspector-body">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                        <div style="font-weight: 800; font-size: 1.15rem; color: var(--neon-cyan);" id="selectedFishName">🐱 Catfish Alpha</div>
+                        <span id="populationDisplay" style="color: var(--neon-cyan); font-family: 'Share Tech Mono'; font-size: 0.8rem;">2 Fish in Tank</span>
+                    </div>
+                    
+                    <div id="selectedFishBio" class="bio-text">
+                        Bottom scavenger. Likes dim lighting & clean substrate.
+                    </div>
+
+                    <!-- Evolution Growth Bar -->
+                    <div class="growth-bar-container" title="Growth progress to next life stage evolution">
+                        <div class="growth-label">
+                            <span>STAGE EVOLUTION</span>
+                            <span id="growthPercentText">50%</span>
+                        </div>
+                        <div class="gauge-bar"><div id="stageProgressFill" class="gauge-fill" style="width: 50%; background: linear-gradient(90deg, #4edcc4, #2ecc71);"></div></div>
+                    </div>
+
+                    <div class="gauge-row" style="margin-top: 4px;">
+                        <div class="gauge-label">
+                            <span>HEALTH</span>
+                            <span id="selectedFishHp" class="gauge-val" style="color: var(--neon-green);">100%</span>
+                        </div>
+                        <div class="gauge-bar"><div id="selectedFishHpFill" class="gauge-fill" style="width: 100%; background: var(--neon-green);"></div></div>
+                    </div>
+
+                    <div class="inspector-row">
+                        <span>Age: <strong id="selectedFishAge">180s</strong></span>
+                        <span>Hunger: <strong id="selectedFishHunger">15%</strong></span>
+                    </div>
+
+                    <div style="margin-top: 6px;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); font-family: 'Share Tech Mono';">TRAITS:</div>
+                        <div id="selectedFishTraits" class="traits-container">
+                            <span class="trait-badge">🍗 Voracious</span>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons-row" style="margin-top: 10px; display: flex; gap: 8px;">
+                        <button id="mateBtn" class="mate-trigger-btn" style="flex: 1;" title="Requires at least 2 living adult fish. Cross-breeds features & traits into a new egg sac!">💖 Breed Mating Ritual</button>
+                        <button id="releaseBtn" class="release-btn" style="display: none; flex: 1;" title="Release mature Elder fish for +1000 PTS & advance generation!">🌿 Release Elder (+1000 PTS)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Card 2: Environment Vitals & Hardware Controls -->
+            <div class="dash-card">
+                <div class="card-title">ENVIRONMENT & CONTROLS</div>
+                <div class="vitals-grid">
+                    <div class="vital-item">
+                        <div class="gauge-row">
+                            <div class="gauge-label">
+                                <span>TEMP</span>
+                                <span id="tempValue" class="gauge-val">21.0°C</span>
+                            </div>
+                            <div class="gauge-bar"><div id="tempGaugeFill" class="gauge-fill" style="width: 50%;"></div></div>
+                        </div>
+                        <button id="heaterBtn" class="ctrl-toggle" title="Toggles water heater (18–24°C)">🔥 Heater</button>
+                    </div>
+
+                    <div class="vital-item">
+                        <div class="gauge-row">
+                            <div class="gauge-label">
+                                <span>O2 OXYGEN</span>
+                                <span id="o2Value" class="gauge-val">75%</span>
+                            </div>
+                            <div class="gauge-bar"><div id="o2GaugeFill" class="gauge-fill" style="width: 75%;"></div></div>
+                        </div>
+                        <button id="aeratorBtn" class="ctrl-toggle active" title="Toggles aeration pump">💨 Aerator</button>
+                    </div>
+
+                    <div class="vital-item">
+                        <div class="gauge-row">
+                            <div class="gauge-label">
+                                <span>PURITY</span>
+                                <span id="cleanValue" class="gauge-val">90%</span>
+                            </div>
+                            <div class="gauge-bar"><div id="cleanGaugeFill" class="gauge-fill" style="width: 90%;"></div></div>
+                        </div>
+                        <button id="lightBtn" class="ctrl-toggle active" title="Toggles overhead tank light">💡 Light</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3: Species Spawner & Terminal Console -->
+            <div class="dash-card chat-card">
+                <div class="card-title">
+                    <span>SPECIES LAB & CONSOLE</span>
+                    <span id="aquaristHandleDisplay" class="handle-display" title="Click to update handle">Aquarist</span>
+                    <button id="changePlayerNameBtn" class="small-btn">✏️ Name</button>
+                </div>
+
+                <div class="species-spawn-bar" style="display: flex; gap: 6px; margin-bottom: 8px;">
+                    <select id="speciesSelect" class="stage-select" style="margin-top: 0; flex: 1;">
+                        <option value="angler">💡 Anglerfish (Deep-sea)</option>
+                        <option value="goldfish">🐠 Goldfish (High waste)</option>
+                        <option value="piranha">🦈 Piranha (Predator)</option>
+                        <option value="puffer">🐡 Pufferfish (Sensitive)</option>
+                    </select>
+                    <button id="spawnSpeciesBtn" class="chat-btn" style="font-size: 0.8rem;" title="Add species mate">➕ Add</button>
+                </div>
+
+                <!-- Family Tree List (Collapsible/Compact) -->
+                <div id="familyTreeList" class="family-tree-list" style="max-height: 45px; overflow-y: auto; margin-bottom: 8px;">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">Dynasty Family Tree: No baby fish spawned yet.</div>
+                </div>
+
+                <div id="chatConsole" class="chat-console">
+                    <div class="chat-entry system"><span class="chat-sender">System:</span> CATFISH Program online. Keep tank clean of fish poop (💩)! Click ❓ How to Play for objectives guide.</div>
+                </div>
+
+                <div class="chat-input-bar">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Type a message or speak..." autocomplete="off">
+                    <button id="micBtn" class="chat-btn mic-btn" title="Toggle Voice Microphone STT">🎤 Mic</button>
+                    <button id="sendBtn" class="chat-btn">Send</button>
+                </div>
+            </div>
+
+        </aside>
+
+    </main>
+
+    <!-- WELCOME AQUARIST HANDLE ENTRY MODAL -->
+    <div id="nameEntryModal" class="modal-overlay" style="display: none;">
+        <div class="modal-card" style="border-color: var(--neon-cyan); text-align: center; width: 420px;">
+            <h2 style="font-family: 'Orbitron'; color: var(--neon-cyan); font-size: 1.5rem;">👋 WELCOME AQUARIST!</h2>
+            <p style="font-family: 'Share Tech Mono'; color: var(--text-muted); margin: 8px 0;">Enter your name to begin your laboratory simulation and join global online leaderboards:</p>
+            
+            <input type="text" id="aquaristNameInput" class="chat-input" style="font-size: 1rem; text-align: center; padding: 10px; margin: 10px 0;" placeholder="Enter your name (e.g. Captain Catfish)" maxlength="24" autocomplete="off">
+            
+            <button id="saveNameBtn" class="mate-trigger-btn" style="background: linear-gradient(135deg, #4edcc4, #2ecc71); color: #051015; font-size: 0.9rem;">🚀 START SIMULATION</button>
+        </div>
+    </div>
+
+    <!-- HOW TO PLAY & OBJECTIVES MODAL (SIMPLIFIED) -->
+    <div id="tutorialModal" class="modal-overlay">
+        <div class="modal-card tutorial-modal-card">
+            <div class="modal-header">
+                <h3 style="font-family: 'Orbitron'; color: var(--neon-cyan); font-size: 1.2rem;">📖 HOW TO PLAY & WIN (3 SIMPLE STEPS)</h3>
+                <button id="closeTutorial" class="hdr-btn">✕ Close</button>
+            </div>
+            
+            <div class="tutorial-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                
+                <div class="tutorial-card">
+                    <div class="tut-step">1</div>
+                    <div class="tut-title">🟢 1. FEED & CLEAN</div>
+                    <div class="tut-body">
+                        Drop <strong>🟢 Food Pellets</strong> when fish get hungry.<br><br>
+                        When the glass fogs up with algae & poop (💩), scrub it clean with the <strong>🧹 Squeegee</strong> tool!
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tut-step">2</div>
+                    <div class="tut-title">💖 2. MATING & HYBRIDS</div>
+                    <div class="tut-body">
+                        When you have 2 adult fish, click <strong>💖 INITIATE MATING RITUAL</strong> to hatch a custom hybrid egg sac inheriting faces & traits!
+                    </div>
+                </div>
+
+                <div class="tutorial-card">
+                    <div class="tut-step">3</div>
+                    <div class="tut-title">🌿 3. GROW & RELEASE</div>
+                    <div class="tut-body">
+                        Grow your fish to <strong>Elder stage</strong>, then click <strong>🌿 Release</strong> for +1000 PTS & advance your Dynasty generation to win!
+                    </div>
+                </div>
+
+            </div>
+
+            <button id="startPlayingBtn" class="mate-trigger-btn" style="background: linear-gradient(135deg, #4edcc4, #2ecc71); color: #051015; margin-top: 10px;">GOT IT — START PLAYING!</button>
+        </div>
+    </div>
+
+    <!-- GLOBAL LEADERBOARD MODAL -->
+    <div id="leaderboardModal" class="modal-overlay">
+        <div class="modal-card leaderboard-modal-card">
+            <div class="modal-header">
+                <h3 style="font-family: 'Orbitron'; color: var(--neon-cyan); font-size: 1.3rem;">🏆 GLOBAL MULTIPLAYER LEADERBOARD</h3>
+                <button id="closeLeaderboard" class="hdr-btn">✕ Close</button>
+            </div>
+            
+            <div class="leaderboard-container">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">AQUARIST</th>
+                            <th style="text-align: right;">RESEARCH POINTS</th>
+                            <th style="text-align: center;">DYNASTY</th>
+                            <th style="text-align: center;">RELEASED</th>
+                            <th style="text-align: right;">DATE</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <!-- Populated dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Face Studio Adjuster & Upload Modal -->
+    <div id="faceModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 style="font-family: 'Orbitron'; color: var(--neon-cyan);">FACE STUDIO & UPLOAD</h3>
+                <button id="closeFaceStudio" class="hdr-btn">✕ Close</button>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <label style="font-family: 'Share Tech Mono'; font-size: 0.85rem; color: var(--neon-cyan);">SELECT TARGET FISH TO MODIFY:</label>
+                <select id="targetFishSelect" class="stage-select" style="margin-top: 0;"></select>
+            </div>
+
+            <!-- Live Preview Canvas -->
+            <div style="display: flex; justify-content: center; align-items: center; background: rgba(5, 12, 18, 0.9); padding: 12px; border-radius: 8px; border: 1px solid rgba(78, 205, 196, 0.2);">
+                <canvas id="facePreviewCanvas" width="120" height="120" style="border-radius: 50%; border: 2px solid var(--neon-cyan); background: #000;"></canvas>
+            </div>
+
+            <div style="margin-top: 5px;">
+                <label class="upload-box" for="customFaceUpload" id="uploadLabel">
+                    📷 Click here to Upload New Face Photo (.PNG / .JPG)
+                    <input type="file" id="customFaceUpload" accept="image/*">
+                </label>
+            </div>
+
+            <div class="slider-group">
+                <div class="slider-row"><span>Center X Position</span><input type="range" id="faceX" min="0" max="100" value="50"></div>
+                <div class="slider-row"><span>Center Y Position</span><input type="range" id="faceY" min="0" max="100" value="45"></div>
+                <div class="slider-row"><span>Horizontal Radius</span><input type="range" id="faceRadiusX" min="10" max="80" value="38"></div>
+                <div class="slider-row"><span>Vertical Radius</span><input type="range" id="faceRadiusY" min="10" max="80" value="44"></div>
+                <div class="slider-row"><span>Edge Feathering</span><input type="range" id="faceFeather" min="5" max="50" value="25"></div>
+                <div class="slider-row"><span>Tilt Angle</span><input type="range" id="faceRotation" min="-50" max="50" value="0"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameOverModal" class="modal-overlay">
+        <div class="modal-card" style="border-color: var(--neon-red); text-align: center;">
+            <h2 style="font-family: 'Orbitron'; color: var(--neon-red); font-size: 1.8rem;">💀 LABORATORY FAILURE</h2>
+            <p style="font-family: 'Share Tech Mono'; color: var(--text-muted); margin: 12px 0;">All Catfish in your tank have died due to starvation, temperature, or zero oxygen!</p>
+            <button id="restartBtn" class="mate-trigger-btn" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">RESTART LABORATORY SIMULATION</button>
+        </div>
+    </div>
+
+    <!-- VICTORY MODAL -->
+    <div id="victoryModal" class="modal-overlay">
+        <div class="modal-card" style="border-color: var(--neon-green); text-align: center;">
+            <h2 style="font-family: 'Orbitron'; color: var(--neon-green); font-size: 1.8rem;">🏆 CATFISH EVOLUTION COMPLETE!</h2>
+            <p style="font-family: 'Share Tech Mono'; color: var(--text-muted); margin: 12px 0;">Congratulations! You raised and released 5 generations of hybrid Catfish species into the wild!</p>
+            <button id="victoryPlayAgainBtn" class="mate-trigger-btn" style="background: linear-gradient(135deg, #2ecc71, #27ae60);">SUBMIT SCORE & START NEXT DYNASTY</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/multiplayer.js"></script>
+    <script src="js/face_processor.js"></script>
+    <script src="js/seaman.js"></script>
+    <script src="js/tank.js"></script>
+    <script src="js/dialogue.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
