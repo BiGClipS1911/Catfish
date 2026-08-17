@@ -215,7 +215,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Start Server
-server.listen(PORT, () => {
-    console.log(`🚀 CATFISH Server running on http://localhost:${PORT}`);
+// Start Server (Binds 0.0.0.0 for Railway / Container hosting)
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 CATFISH Server running on port ${PORT}`);
 });

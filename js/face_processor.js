@@ -80,25 +80,100 @@ class FaceProcessor {
         });
     }
 
-    createFallbackFace() {
+    createFallbackFace(skinTone = '#f0c6a5', eyeColor = '#2e86de') {
         const size = 320;
         this.faceCanvas.width = size;
         this.faceCanvas.height = size;
         const ctx = this.faceCtx;
-        
-        ctx.fillStyle = '#e8b896';
+        ctx.clearRect(0, 0, size, size);
+
+        const cx = size / 2;
+        const cy = size / 2;
+
+        // 1. Shaded Face Base Oval
+        const grad = ctx.createRadialGradient(cx, cy, size * 0.1, cx, cy, size * 0.42);
+        grad.addColorStop(0, '#f8d7be');
+        grad.addColorStop(0.7, skinTone);
+        grad.addColorStop(1, '#c89574');
+
+        ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.ellipse(size / 2, size / 2, size * 0.38, size * 0.44, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, size * 0.38, size * 0.44, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.fillStyle = '#222';
-        ctx.fillRect(size * 0.3, size * 0.4, size * 0.15, size * 0.1);
-        ctx.fillRect(size * 0.55, size * 0.4, size * 0.15, size * 0.1);
+        // Face outline
+        ctx.strokeStyle = 'rgba(100, 50, 30, 0.4)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
 
-        ctx.fillStyle = '#943838';
+        // 2. Eyebrows
+        ctx.strokeStyle = '#331a00';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.arc(size / 2, size * 0.65, size * 0.15, 0, Math.PI);
+        ctx.moveTo(cx - size * 0.26, cy - size * 0.14);
+        ctx.quadraticCurveTo(cx - size * 0.15, cy - size * 0.19, cx - size * 0.05, cy - size * 0.14);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(cx + size * 0.05, cy - size * 0.14);
+        ctx.quadraticCurveTo(cx + size * 0.15, cy - size * 0.19, cx + size * 0.26, cy - size * 0.14);
+        ctx.stroke();
+
+        // 3. Eyes (Sclera + Iris + Pupil + Highlight)
+        const eyeY = cy - size * 0.05;
+        const leftEyeX = cx - size * 0.16;
+        const rightEyeX = cx + size * 0.16;
+        const eyeR = size * 0.08;
+
+        [leftEyeX, rightEyeX].forEach(eyeX => {
+            // Sclera (White)
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(eyeX, eyeY, eyeR * 1.2, eyeR * 0.9, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#663300';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Iris
+            ctx.fillStyle = eyeColor;
+            ctx.beginPath();
+            ctx.arc(eyeX, eyeY, eyeR * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pupil
+            ctx.fillStyle = '#0a0a0a';
+            ctx.beginPath();
+            ctx.arc(eyeX, eyeY, eyeR * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Catchlight reflection dot
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(eyeX - eyeR * 0.2, eyeY - eyeR * 0.2, eyeR * 0.18, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 4. Nose Bridge & Nostrils
+        ctx.strokeStyle = 'rgba(120, 60, 30, 0.5)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - size * 0.05);
+        ctx.lineTo(cx - size * 0.04, cy + size * 0.1);
+        ctx.lineTo(cx + size * 0.04, cy + size * 0.1);
+        ctx.stroke();
+
+        // 5. Expressive Lips / Mouth
+        ctx.fillStyle = '#c05c5c';
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + size * 0.22, size * 0.12, size * 0.06, 0, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = '#802626';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        this.isLoaded = true;
     }
 
     processFace() {
