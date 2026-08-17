@@ -241,11 +241,23 @@ class Tank {
         ctx.closePath();
         ctx.fill();
 
-        // Render Fish Poop Particles (💩)
+        // Render Fish Poop Particles (💩) & Scrub Alerts
         ctx.font = '16px sans-serif';
         ctx.textAlign = 'center';
         for (let p of this.poops) {
             ctx.fillText('💩', p.x, p.y);
+        }
+
+        if (this.poops.length > 0) {
+            const firstP = this.poops[0];
+            ctx.save();
+            ctx.font = "bold 11px 'Share Tech Mono', sans-serif";
+            ctx.fillStyle = '#ff7675';
+            ctx.strokeStyle = '#2d3436';
+            ctx.lineWidth = 3;
+            ctx.strokeText('🧹 CLEAN POOP (Squeegee)', firstP.x, Math.max(30, firstP.y - 14));
+            ctx.fillText('🧹 CLEAN POOP (Squeegee)', firstP.x, Math.max(30, firstP.y - 14));
+            ctx.restore();
         }
 
         // Bubbles
@@ -272,6 +284,52 @@ class Tank {
             ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
             ctx.fill();
         }
+    }
+
+    drawActiveToolHUD(ctx, toolName = 'hand', toolDesc = '') {
+        const w = this.width;
+        const h = this.height;
+
+        ctx.save();
+        // Active Tool Badge at Bottom Left of Tank
+        ctx.fillStyle = 'rgba(4, 17, 24, 0.85)';
+        ctx.strokeStyle = 'rgba(78, 205, 196, 0.6)';
+        ctx.lineWidth = 1.5;
+        
+        const badgeW = Math.min(340, w - 30);
+        const badgeH = 34;
+        const badgeX = 14;
+        const badgeY = h - 48;
+
+        ctx.beginPath();
+        ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = "bold 11px 'Share Tech Mono', sans-serif";
+        ctx.fillStyle = '#4edcc4';
+        ctx.textAlign = 'left';
+        ctx.fillText(`TOOL: ${toolName.toUpperCase()} — ${toolDesc}`, badgeX + 12, badgeY + 21);
+
+        // Low Oxygen On-Canvas Alert
+        if (this.oxygen < 45) {
+            ctx.fillStyle = 'rgba(231, 76, 60, 0.9)';
+            ctx.strokeStyle = '#ff7675';
+            ctx.lineWidth = 2;
+            const alertW = 280;
+            const alertX = (w - alertW) / 2;
+            ctx.beginPath();
+            ctx.roundRect(alertX, 16, alertW, 30, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = "bold 12px 'Share Tech Mono', sans-serif";
+            ctx.textAlign = 'center';
+            ctx.fillText('⚠️ LOW OXYGEN! TURN ON AERATOR PUMP 💨', w / 2, 35);
+        }
+
+        ctx.restore();
     }
 
     drawForeground(ctx) {

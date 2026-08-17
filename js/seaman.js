@@ -708,7 +708,51 @@ class Seaman {
     }
 
     drawHealthBarOverlay(ctx, headRadius) {
-        const topY = this.y - headRadius - 18;
+        let topY = this.y - headRadius - 18;
+
+        // Render Action Status Pill Badge over head
+        if (!this.isDead) {
+            let badgeText = '';
+            let badgeBg = '';
+            let badgeBorder = '';
+
+            if (this.stage === 4) {
+                badgeText = '🏆 READY TO RELEASE (+1000 PTS)';
+                badgeBg = 'rgba(46, 204, 113, 0.9)';
+                badgeBorder = '#2ecc71';
+            } else if (this.hunger > 60) {
+                badgeText = '🍖 HUNGRY! (Drop Feed Pellets)';
+                badgeBg = 'rgba(230, 126, 34, 0.9)';
+                badgeBorder = '#e67e22';
+            } else if (this.stage === 3) {
+                badgeText = '💖 READY TO MATE';
+                badgeBg = 'rgba(232, 67, 147, 0.9)';
+                badgeBorder = '#e84393';
+            }
+
+            if (badgeText) {
+                ctx.save();
+                ctx.font = "bold 10px 'Share Tech Mono', sans-serif";
+                const txtW = ctx.measureText(badgeText).width + 12;
+                const badgeX = this.x - txtW / 2;
+                const badgeY = topY - 18;
+
+                ctx.fillStyle = badgeBg;
+                ctx.strokeStyle = badgeBorder;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(badgeX, badgeY, txtW, 16, 3);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.fillText(badgeText, this.x, badgeY + 12);
+                ctx.restore();
+
+                topY -= 18; // Offset name label down
+            }
+        }
 
         let statusTxt = `${this.speciesInfo.icon} ${this.name} (${Math.round(this.ageSeconds)}s)`;
         if (this.decayStage === 1) statusTxt = `💀 ${this.name} (FRESH DEAD)`;

@@ -89,6 +89,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         tank.drawForeground(ctx);
 
+        const toolDescs = {
+            'hand': 'Tap glass to attract fish or click fish to inspect & zoom face',
+            'feed': 'Click anywhere in tank water to drop nutrition pellets',
+            'love': 'Drop aphrodisiacs & trigger mating when 2 adults present',
+            'squeegee': 'Scrub dirty glass, clear fish poop (💩), and scoop bones'
+        };
+        tank.drawActiveToolHUD(ctx, currentTool, toolDescs[currentTool] || '');
+
         updateGauges();
         updateSelectedFishHUD();
         updateMissionBanner();
@@ -99,32 +107,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     requestAnimationFrame(gameLoop);
 
+    function setPipelineActiveStep(stepId) {
+        ['stepFeed', 'stepClean', 'stepMate', 'stepRelease'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === stepId) el.classList.add('active');
+                else el.classList.remove('active');
+            }
+        });
+    }
+
     // 3. Dynamic Mission & Guidance Banner System
     function updateMissionBanner() {
         const bannerIcon = document.querySelector('#missionBanner .mission-icon');
-        const bannerTitle = document.querySelector('#missionBanner .mission-title');
         const bannerDesc = document.getElementById('missionDesc');
-        if (!bannerTitle || !bannerDesc) return;
+        if (!bannerDesc) return;
 
         // Check Critical Warnings first
         if (tank.oxygen < 45) {
             if (bannerIcon) bannerIcon.textContent = '⚠️';
-            bannerTitle.textContent = 'CRITICAL WARNING: LOW OXYGEN (O2 < 45%)';
-            bannerDesc.textContent = 'Turn on the 💨 Aerator Pump immediately to prevent fish suffocation!';
+            setPipelineActiveStep('stepClean');
+            bannerDesc.textContent = 'CRITICAL OXYGEN (O2 < 45%)! Turn on 💨 Aerator Pump immediately to prevent suffocation!';
             return;
         }
 
-        if (tank.cleanliness < 40 || tank.poops.length > 3) {
+        if (tank.cleanliness < 40 || tank.poops.length > 0) {
             if (bannerIcon) bannerIcon.textContent = '💩';
-            bannerTitle.textContent = 'WARNING: TANK POLLUTION & FISH POOP';
-            bannerDesc.textContent = 'Use the 🧹 Squeegee tool to clear fish poop and scrub substrate clean!';
+            setPipelineActiveStep('stepClean');
+            bannerDesc.textContent = 'TANK POLLUTION! Select 🧹 Squeegee tool to clear fish poop (💩) and scrub substrate clean!';
             return;
         }
 
-        if (seamen.some(s => !s.isDead && s.hunger > 70)) {
+        if (seamen.some(s => !s.isDead && s.hunger > 60)) {
             if (bannerIcon) bannerIcon.textContent = '🍗';
-            bannerTitle.textContent = 'ALERT: HUNGRY CATFISH';
-            bannerDesc.textContent = 'Select 🟢 Feed Pellets tool and click inside the tank to feed your fish!';
+            setPipelineActiveStep('stepFeed');
+            bannerDesc.textContent = 'HUNGRY CATFISH! Select 🟢 Feed Pellets tool and click in tank to feed your fish!';
             return;
         }
 
@@ -133,15 +150,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (aliveElders.length > 0) {
             if (bannerIcon) bannerIcon.textContent = '🌿';
-            bannerTitle.textContent = `MILESTONE READY: RELEASE ELDER FROG-FISH`;
-            bannerDesc.textContent = `Select ${aliveElders[0].name} and click "Release Elder Frog-Fish" to earn +1000 PTS & advance to Generation ${currentGeneration + 1}!`;
+            setPipelineActiveStep('stepRelease');
+            bannerDesc.textContent = `MILESTONE: Select ${aliveElders[0].name} & click "Release Elder Frog-Fish" to earn +1000 PTS & advance Dynasty!`;
             return;
         }
 
         if (aliveAdults.length >= 2) {
             if (bannerIcon) bannerIcon.textContent = '💖';
-            bannerTitle.textContent = `GOAL: INITIATE BREEDING RITUAL`;
-            bannerDesc.textContent = `You have 2 adult fish! Click "💖 INITIATE MATING RITUAL" to hatch a Gen ${currentGeneration + 1} hybrid egg sac!`;
+            setPipelineActiveStep('stepMate');
+            bannerDesc.textContent = `2 Adult fish present! Select 💖 Love Aphrodisiac or click "Initiate Mating Ritual" to hatch Gen ${currentGeneration + 1}!`;
             return;
         }
 

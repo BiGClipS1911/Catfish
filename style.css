@@ -230,12 +230,36 @@ body {
     flex-direction: column;
 }
 
-.mission-title {
+.mission-pipeline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+    flex-wrap: wrap;
+}
+
+.pipeline-step {
     font-family: 'Orbitron', sans-serif;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     font-weight: 800;
-    color: var(--neon-amber);
-    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.pipeline-step.active {
+    background: rgba(78, 205, 196, 0.25);
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(78, 205, 196, 0.4);
+}
+
+.pipeline-arrow {
+    font-size: 0.7rem;
+    color: var(--text-muted);
 }
 
 .mission-desc {
