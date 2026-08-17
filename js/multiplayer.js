@@ -287,7 +287,12 @@ class MultiplayerManager {
         const listEl = document.getElementById('leaderboardBody');
         const headerTopScoreEl = document.getElementById('headerTopScore');
 
-        if (headerTopScoreEl && board && board.length > 0) {
+        if (!board || !Array.isArray(board)) board = [];
+
+        // Ensure sorted descending by research points
+        board.sort((a, b) => (b.points || 0) - (a.points || 0));
+
+        if (headerTopScoreEl && board.length > 0) {
             const top = board[0];
             headerTopScoreEl.textContent = `🏆 #1 ${top.name}: ${top.points.toLocaleString()} PTS`;
             headerTopScoreEl.style.cursor = 'pointer';
@@ -296,21 +301,26 @@ class MultiplayerManager {
         if (!listEl) return;
 
         listEl.innerHTML = '';
-        if (!board || board.length === 0) {
+        if (board.length === 0) {
             listEl.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No high scores recorded yet! Be the first!</td></tr>`;
             return;
         }
 
-        board.forEach((entry, idx) => {
+        // Strictly limit main list to Top 10 players
+        const top10 = board.slice(0, 10);
+        let playerInTop10 = false;
+
+        top10.forEach((entry, idx) => {
             const tr = document.createElement('tr');
             const medal = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : `#${idx + 1} `;
             const isSelf = entry.name.toLowerCase() === this.playerName.toLowerCase();
+            if (isSelf) playerInTop10 = true;
 
-            tr.style.background = isSelf ? 'rgba(78, 205, 196, 0.18)' : 'transparent';
+            tr.style.background = isSelf ? 'rgba(78, 205, 196, 0.22)' : 'transparent';
             if (isSelf) tr.style.fontWeight = 'bold';
 
             tr.innerHTML = `
-                <td style="color: var(--neon-amber);">${medal}${this.escapeHTML(entry.name)}</td>
+                <td style="color: ${isSelf ? 'var(--neon-green)' : 'var(--neon-amber)'};">${medal}${this.escapeHTML(entry.name)}${isSelf ? ' (YOU)' : ''}</td>
                 <td style="color: var(--neon-cyan); text-align: right; font-weight: bold;">${entry.points.toLocaleString()} PTS</td>
                 <td style="text-align: center;">Gen ${entry.generation}</td>
                 <td style="text-align: center;">${entry.released || 0} Released</td>
@@ -318,6 +328,27 @@ class MultiplayerManager {
             `;
             listEl.appendChild(tr);
         });
+
+        // If player is registered below Top 10, display their personal rank position at the bottom
+        const playerRankIndex = board.findIndex(e => e.name.toLowerCase() === this.playerName.toLowerCase());
+        if (!playerInTop10 && playerRankIndex >= 0) {
+            const pEntry = board[playerRankIndex];
+            const trDivider = document.createElement('tr');
+            trDivider.innerHTML = `<td colspan="5" style="text-align:center; font-size:0.75rem; color: var(--text-muted); padding: 6px 0;">──────── YOUR CURRENT RANK POSITION ────────</td>`;
+            listEl.appendChild(trDivider);
+
+            const trSelf = document.createElement('tr');
+            trSelf.style.background = 'rgba(78, 205, 196, 0.22)';
+            trSelf.style.fontWeight = 'bold';
+            trSelf.innerHTML = `
+                <td style="color: var(--neon-green);">#${playerRankIndex + 1} ${this.escapeHTML(pEntry.name)} (YOU)</td>
+                <td style="color: var(--neon-cyan); text-align: right; font-weight: bold;">${pEntry.points.toLocaleString()} PTS</td>
+                <td style="text-align: center;">Gen ${pEntry.generation}</td>
+                <td style="text-align: center;">${pEntry.released || 0} Released</td>
+                <td style="font-size: 0.75rem; color: var(--text-muted); text-align: right;">${pEntry.date || 'Today'}</td>
+            `;
+            listEl.appendChild(trSelf);
+        }
     }
 
     drawRemotePlayers(ctx) {

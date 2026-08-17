@@ -41,13 +41,13 @@ function getLeaderboard() {
     return [];
 }
 
-// Helper: Save Leaderboard Data
+// Helper: Save Leaderboard Data (keeps all registered players, sorted by points)
 function saveLeaderboard(board) {
     try {
         // Sort descending by points
         board.sort((a, b) => (b.points || 0) - (a.points || 0));
-        // Keep top 50
-        const trimmed = board.slice(0, 50);
+        // Keep up to 1000 players so every player is tracked
+        const trimmed = board.slice(0, 1000);
         fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
         return trimmed;
     } catch (err) {
