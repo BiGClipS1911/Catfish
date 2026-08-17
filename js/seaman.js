@@ -219,6 +219,7 @@ class Seaman {
     updateLifecycleAndGrowth(dt) {
         const growthMult = this.hasTrait('voracious') ? 1.3 : 1.0;
         const effectiveAge = this.ageSeconds * growthMult;
+        const prevStage = this.stage;
 
         if (effectiveAge < 25) {
             this.stage = 0; // Egg Sac
@@ -235,6 +236,14 @@ class Seaman {
         } else {
             this.stage = 4; // Elder Frog-Fish
             this.baseSize = 50;
+        }
+
+        // Trigger evolution reward event when fish progresses to next life stage
+        if (this.stage > prevStage && prevStage >= 0) {
+            const stageNames = ['Egg Sac', 'Larva Fry', 'Tadpole', 'Adult Catfish', 'Elder Frog-Fish'];
+            if (window.onFishEvolved) {
+                window.onFishEvolved(this, stageNames[this.stage]);
+            }
         }
     }
 
@@ -530,6 +539,7 @@ class Seaman {
                 // Trigger Poop digestion timer (poops in 5 seconds!)
                 this.digestionTimer = 5.0;
 
+                if (window.onFishFedPoints) window.onFishFedPoints(this);
                 if (window.gameAudio) window.gameAudio.playChomp();
                 break;
             }

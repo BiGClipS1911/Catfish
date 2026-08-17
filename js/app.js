@@ -6,27 +6,28 @@
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Initialize Parent Processors
+    // 1. Initialize Starting Creature (Egg Sac Stage 0)
     const faceParent1 = new FaceProcessor('seaman_face.png');
     await faceParent1.init();
 
     const faceParent2 = new FaceProcessor('seaman_face2.png');
     await faceParent2.init();
 
-    let parentA = new Seaman(faceParent1, 'Catfish Alpha (Dad)', 3, false, null, 'catfish');
-    let parentB = new Seaman(faceParent2, 'Goldfish Beta (Mom)', 3, false, null, 'goldfish');
+    let initialEgg = new Seaman(faceParent1, 'Catfish Embryo Gen 1', 0, true, [], 'catfish');
+    initialEgg.x = 400;
+    initialEgg.y = 510;
 
-    let seamen = [parentA, parentB];
+    let seamen = [initialEgg];
     let familyTree = [];
 
     let currentGeneration = 1;
-    let researchPoints = 0;
+    let researchPoints = 150; // Starting capital for new aquarists
     let totalFishReleased = 0;
-    let selectedFish = parentA;
+    let selectedFish = initialEgg;
     let isMultiplayerMode = false;
 
     const tank = new Tank(800, 600);
-    const dialogue = new DialogueEngine(parentA, tank);
+    const dialogue = new DialogueEngine(initialEgg, tank);
     const audio = new GameAudio();
     window.gameAudio = audio;
 
@@ -42,6 +43,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const multiplayer = new MultiplayerManager(appContext);
     multiplayer.init();
     window.multiplayerManager = multiplayer;
+
+    // Point Economy Global Event Callbacks
+    window.onFishFedPoints = (fish) => {
+        researchPoints += 15;
+        updateGauges();
+        multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
+    };
+
+    window.onFishEvolved = (fish, stageName) => {
+        researchPoints += 150;
+        audio.playButtonBeep();
+        multiplayer.showToast(`🎉 ${fish.name} evolved to ${stageName}! (+150 PTS)`);
+        dialogue.speak(`Evolution Milestone! ${fish.name} has grown into a ${stageName}! (+150 PTS)`);
+        updateGauges();
+        multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
+    };
 
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -367,7 +384,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Spawn New Species
+    // Spawn New Species (Requires Research Points Economy)
+    const SPECIES_COSTS = {
+        'goldfish': 300,
+        'puffer': 500,
+        'piranha': 750,
+        'angler': 1000
+    };
+
     document.getElementById('spawnSpeciesBtn')?.addEventListener('click', async () => {
         audio.playButtonBeep();
         if (seamen.length >= 12) {
@@ -376,8 +400,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const speciesSelect = document.getElementById('speciesSelect');
-        const specId = speciesSelect ? speciesSelect.value : 'angler';
+        const specId = speciesSelect ? speciesSelect.value : 'goldfish';
         const specObj = window.FISH_SPECIES.find(s => s.id === specId) || window.FISH_SPECIES[1];
+        const cost = SPECIES_COSTS[specId] || 300;
+
+        if (researchPoints < cost) {
+            dialogue.speak(`You need ${cost} Research Points to purchase a ${specObj.name}! Earn points by feeding fish & scrubbing poop!`);
+            multiplayer.showToast(`🔒 Insufficient Points! ${specObj.name} costs ${cost} PTS (You have ${researchPoints} PTS)`);
+            return;
+        }
+
+        researchPoints -= cost;
 
         const newFace = new FaceProcessor('seaman_face2.png');
         await newFace.init();
@@ -386,14 +419,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         seamen.push(newFish);
         selectedFish = newFish;
 
+        updateGauges();
         updateTargetFishDropdown();
-        dialogue.speak(`Added a new adult ${specObj.name} to the tank! It can now mate with your catfish!`);
-        multiplayer.showToast(`➕ Added adult ${specObj.name} mate! Ready to breed (Pop: ${seamen.length}/12).`);
+        dialogue.speak(`Purchased an adult ${specObj.name} mate for ${cost} PTS! Keep tank clean so they can breed!`);
+        multiplayer.showToast(`🛒 Purchased ${specObj.name} Mate! (-${cost} PTS | Pop: ${seamen.length}/12)`);
+        multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
     });
 
-    // Clean Tank, Remove Fish Poop (💩) & Scoop Bones
+    // Clean Tank, Remove Fish Poop (💩) & Scoop Bones with Research Point Rewards
     function cleanTankAndScoopBones() {
+        const initialPoops = tank.poops.length;
         tank.cleanWater();
+
+        if (initialPoops > 0) {
+            const reward = initialPoops * 25;
+            researchPoints += reward;
+            multiplayer.showToast(`🧹 Tank scrubbed clean! (+${reward} PTS)`);
+        } else {
+            multiplayer.showToast("🧹 Tank water scrubbed & substrate cleaned!");
+        }
+
         for (let i = seamen.length - 1; i >= 0; i--) {
             if (seamen[i].isDead) {
                 const deadFish = seamen[i];
@@ -401,7 +446,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 dialogue.speak(`Scooped and cleaned ${deadFish.name}'s remains from the tank!`);
             }
         }
-        multiplayer.showToast("🧹 Tank water scrubbed & fish poop cleared!");
+
+        updateGauges();
+        multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
     }
 
     // 5. Game Over Check & Restart
@@ -425,13 +472,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         tank.poops = [];
         tank.initDirt();
 
-        parentA = new Seaman(faceParent1, 'Catfish Alpha (Dad)', 3, false, null, 'catfish');
-        parentB = new Seaman(faceParent2, 'Goldfish Beta (Mom)', 3, false, null, 'goldfish');
-        seamen = [parentA, parentB];
-        selectedFish = parentA;
+        researchPoints = 150;
+        initialEgg = new Seaman(faceParent1, 'Catfish Embryo Gen 1', 0, true, [], 'catfish');
+        initialEgg.x = 400;
+        initialEgg.y = 510;
 
-        dialogue.speak("Catfish simulation restarted. Keep your fish fed and clean!");
-        multiplayer.showToast("🔄 Laboratory tank restarted.");
+        seamen = [initialEgg];
+        selectedFish = initialEgg;
+
+        updateGauges();
+        dialogue.speak("Catfish simulation restarted! Your new egg sac is incubating.");
+        multiplayer.showToast("🔄 Tank restarted with 1 Egg Sac (150 PTS).");
+        multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
     }
 
     document.getElementById('restartBtn')?.addEventListener('click', restartLaboratorySimulation);
