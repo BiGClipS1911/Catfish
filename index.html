@@ -294,6 +294,26 @@
         </div>
     </div>
 
+    <!-- MATING STANDARDS CHECKLIST MODAL -->
+    <div id="matingStandardsModal" class="modal-overlay">
+        <div class="modal-card" style="border-color: var(--neon-pink); width: 560px;">
+            <div class="modal-header">
+                <h3 style="font-family: 'Orbitron'; color: var(--neon-pink); font-size: 1.15rem;">📋 BREEDING STANDARDS ASSESSMENT</h3>
+                <button id="closeMatingStandards" class="hdr-btn">✕ Close</button>
+            </div>
+            
+            <p style="font-family: 'Share Tech Mono'; color: var(--text-muted); font-size: 0.82rem; margin-top: 4px;">
+                Fish must meet biological and environmental breeding standards before they can mate:
+            </p>
+
+            <div id="matingStandardsList" class="standards-checklist">
+                <!-- Dynamically populated with 🟢 PASSED / 🔴 FAILED badges -->
+            </div>
+
+            <button id="matingStandardsOkBtn" class="hdr-btn highlight-btn" style="width: 100%; margin-top: 10px; padding: 10px; background: linear-gradient(135deg, #e84393, #d63031); color: #fff;">UNDERSTOOD — PREPARE TANK</button>
+        </div>
+    </div>
+
     <!-- Face Studio Adjuster & Upload Modal -->
     <div id="faceModal" class="modal-overlay">
         <div class="modal-card">

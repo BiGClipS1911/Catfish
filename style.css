@@ -740,6 +740,76 @@ body {
     padding-bottom: 8px;
 }
 
+/* Breeding Standards Checklist */
+.standards-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    background: rgba(4, 12, 18, 0.9);
+    border: 1px solid rgba(232, 67, 147, 0.3);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.std-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.82rem;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.std-item.pass {
+    border-left: 3px solid var(--neon-green);
+}
+
+.std-item.fail {
+    border-left: 3px solid var(--neon-red);
+}
+
+.std-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.std-title {
+    font-weight: bold;
+    color: #fff;
+}
+
+.std-detail {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.std-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 800;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.std-badge.pass {
+    background: rgba(46, 204, 113, 0.2);
+    color: var(--neon-green);
+    border: 1px solid var(--neon-green);
+}
+
+.std-badge.fail {
+    background: rgba(231, 76, 60, 0.2);
+    color: var(--neon-red);
+    border: 1px solid var(--neon-red);
+}
+
 /* Tutorial Grid */
 .tutorial-grid {
     display: grid;

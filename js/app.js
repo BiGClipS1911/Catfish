@@ -175,6 +175,99 @@ document.addEventListener('DOMContentLoaded', async () => {
         bannerDesc.textContent = `Keep water clean and O2 high. Feed fish pellets so they grow from Fry to Elder stage!`;
     }
 
+    function evaluateMatingStandards(p1, p2) {
+        const standards = [];
+
+        // 1. Adult Stage (Stage 3+)
+        const s1Ok = p1 && p1.stage >= 3;
+        const s2Ok = p2 && p2.stage >= 3;
+        standards.push({
+            name: 'Adult Stage Maturity (Stage 3+)',
+            pass: s1Ok && s2Ok,
+            detail: `${p1 ? p1.name : 'P1'}: Stage ${p1 ? p1.stage : 0}, ${p2 ? p2.name : 'P2'}: Stage ${p2 ? p2.stage : 0}`
+        });
+
+        // 2. Health Standard (≥ 70%)
+        const h1 = p1 ? Math.round(p1.health) : 0;
+        const h2 = p2 ? Math.round(p2.health) : 0;
+        const healthOk = h1 >= 70 && h2 >= 70;
+        standards.push({
+            name: 'Vigorous Health (≥ 70%)',
+            pass: healthOk,
+            detail: `${p1 ? p1.name : 'P1'}: ${h1}%, ${p2 ? p2.name : 'P2'}: ${h2}% (Min: 70%)`
+        });
+
+        // 3. Nutrition Standard (Hunger ≤ 45%)
+        const hunger1 = p1 ? Math.round(p1.hunger) : 100;
+        const hunger2 = p2 ? Math.round(p2.hunger) : 100;
+        const hungerOk = hunger1 <= 45 && hunger2 <= 45;
+        standards.push({
+            name: 'Satiated Nutrition (Hunger ≤ 45%)',
+            pass: hungerOk,
+            detail: `${p1 ? p1.name : 'P1'}: ${hunger1}%, ${p2 ? p2.name : 'P2'}: ${hunger2}% (Max: 45%)`
+        });
+
+        // 4. Tank Oxygen (≥ 65%)
+        const o2Val = Math.round(tank.oxygen);
+        const o2Ok = o2Val >= 65;
+        standards.push({
+            name: 'Water Oxygen Aeration (≥ 65%)',
+            pass: o2Ok,
+            detail: `Tank O2: ${o2Val}% (Min: 65% — Turn on Aerator)`
+        });
+
+        // 5. Water Cleanliness (≥ 60%)
+        const cleanVal = Math.round(tank.cleanliness);
+        const cleanOk = cleanVal >= 60 && tank.poops.length <= 2;
+        standards.push({
+            name: 'Substrate Cleanliness (≥ 60%)',
+            pass: cleanOk,
+            detail: `Cleanliness: ${cleanVal}%, Poops: ${tank.poops.length}`
+        });
+
+        // 6. Water Temperature (18°C – 26°C)
+        const tempVal = tank.temperature.toFixed(1);
+        const tempOk = tank.temperature >= 18 && tank.temperature <= 26;
+        standards.push({
+            name: 'Breeding Temperature (18°C–26°C)',
+            pass: tempOk,
+            detail: `Current Temp: ${tempVal}°C (Optimal: 18°C–26°C)`
+        });
+
+        // 7. Reproductive Cooldown
+        const cdOk = (p1 ? p1.matingCooldown : 0) <= 0 && (p2 ? p2.matingCooldown : 0) <= 0;
+        standards.push({
+            name: 'Reproductive Cooldown Ready',
+            pass: cdOk,
+            detail: cdOk ? 'Both parents ready' : 'Parents resting from recent mating'
+        });
+
+        const allPass = standards.every(s => s.pass);
+        return { allPass, standards };
+    }
+
+    function showMatingStandardsModal(evaluation, p1, p2) {
+        const modal = document.getElementById('matingStandardsModal');
+        const listEl = document.getElementById('matingStandardsList');
+        if (!modal || !listEl) return;
+
+        listEl.innerHTML = '';
+        evaluation.standards.forEach(s => {
+            const item = document.createElement('div');
+            item.className = `std-item ${s.pass ? 'pass' : 'fail'}`;
+            item.innerHTML = `
+                <div class="std-info">
+                    <span class="std-title">${s.pass ? '🟢' : '🔴'} ${s.name}</span>
+                    <span class="std-detail">${s.detail}</span>
+                </div>
+                <span class="std-badge ${s.pass ? 'pass' : 'fail'}">${s.pass ? 'PASSED' : 'REQUIRED'}</span>
+            `;
+            listEl.appendChild(item);
+        });
+
+        modal.style.display = 'flex';
+    }
+
     // 4. Mating & Cross-Species Genetic Fusion System
     async function triggerMatingRitual(isAutonomous = false) {
         if (seamen.length >= 12) {
@@ -202,6 +295,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             p1 = selectedFish;
             const targetPartner = aliveAdults.find(s => s !== selectedFish);
             if (targetPartner) p2 = targetPartner;
+        }
+
+        // Evaluate Mating Standards before proceeding
+        const evalResult = evaluateMatingStandards(p1, p2);
+        if (!evalResult.allPass) {
+            if (!isAutonomous) {
+                audio.playButtonBeep();
+                dialogue.speak(`Mating standards not met! Feed fish, clean water, or adjust temperature to 18-26°C!`);
+                multiplayer.showToast(`⚠️ Breeding standards not met! Check standards list.`);
+                showMatingStandardsModal(evalResult, p1, p2);
+            }
+            return;
         }
 
         if (!isAutonomous) {
@@ -520,6 +625,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     document.getElementById('mateBtn')?.addEventListener('click', triggerMatingRitual);
+
+    const closeStdBtn = document.getElementById('closeMatingStandards');
+    const okStdBtn = document.getElementById('matingStandardsOkBtn');
+    const stdModal = document.getElementById('matingStandardsModal');
+    
+    closeStdBtn?.addEventListener('click', () => { if (stdModal) stdModal.style.display = 'none'; });
+    okStdBtn?.addEventListener('click', () => { if (stdModal) stdModal.style.display = 'none'; });
+    stdModal?.addEventListener('click', (e) => { if (e.target === stdModal) stdModal.style.display = 'none'; });
 
     document.getElementById('aeratorBtn')?.addEventListener('click', (e) => {
         audio.playButtonBeep();
