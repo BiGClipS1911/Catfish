@@ -1,8 +1,10 @@
-/**
- * CATFISH Multiplayer & Global Leaderboard Controller
- * Handles Socket.io real-time tank synchronization, global chat, online aquarists,
- * and leaderboard score submission to Railway cloud server.
- */
+const DEFAULT_LEADERBOARD = [
+    { name: "Aquarist Prime", points: 5500, generation: 5, released: 4, date: "2026-08-12" },
+    { name: "Dr. Seaman", points: 4200, generation: 4, released: 3, date: "2026-08-12" },
+    { name: "Oceanic Master", points: 3100, generation: 3, released: 2, date: "2026-08-11" },
+    { name: "AquaBreeder99", points: 2400, generation: 3, released: 2, date: "2026-08-10" },
+    { name: "Catfish Explorer", points: 1500, generation: 2, released: 1, date: "2026-08-09" }
+];
 
 class MultiplayerManager {
     constructor(appContext) {
@@ -12,7 +14,14 @@ class MultiplayerManager {
         this.playerName = localStorage.getItem('catfish_player_name') || 'Aquarist_' + Math.floor(Math.random() * 8999 + 1000);
         this.remotePlayers = new Map(); // socketId -> remote player data & fish
         this.onlineCount = 1;
-        this.leaderboardCache = [];
+
+        // Initialize leaderboard cache from localStorage or default entries
+        const cached = localStorage.getItem('catfish_leaderboard_cache');
+        try {
+            this.leaderboardCache = cached ? JSON.parse(cached) : [...DEFAULT_LEADERBOARD];
+        } catch(e) {
+            this.leaderboardCache = [...DEFAULT_LEADERBOARD];
+        }
 
         this.syncInterval = null;
     }
@@ -194,16 +203,53 @@ class MultiplayerManager {
     }
 
     async fetchLeaderboard() {
+        // Render currently cached leaderboard immediately (no delay)
+        this.renderLeaderboardUI(this.leaderboardCache);
+
         try {
             const res = await fetch(this.getServerUrl('/api/leaderboard'));
             if (res.ok) {
                 const data = await res.json();
-                this.leaderboardCache = data;
-                this.renderLeaderboardUI(data);
+                if (Array.isArray(data) && data.length > 0) {
+                    this.leaderboardCache = data;
+                    localStorage.setItem('catfish_leaderboard_cache', JSON.stringify(data));
+                    this.renderLeaderboardUI(data);
+                }
             }
         } catch (e) {
-            console.log('Using cached or default leaderboard:', e);
+            console.log('Server fetch offline, using local cached leaderboard:', e);
+            this.updateLocalOfflineLeaderboard(
+                this.playerName,
+                this.app.researchPoints || 0,
+                this.app.currentGeneration || 1,
+                this.app.totalFishReleased || 0
+            );
         }
+    }
+
+    updateLocalOfflineLeaderboard(name, points, generation, released) {
+        if (!name) return;
+        const cleanName = name.trim().substring(0, 24);
+        const idx = this.leaderboardCache.findIndex(e => e.name.toLowerCase() === cleanName.toLowerCase());
+        const entry = {
+            name: cleanName,
+            points: Math.max(0, Math.floor(points)),
+            generation: Math.max(1, generation || 1),
+            released: Math.max(0, released || 0),
+            date: new Date().toISOString().split('T')[0]
+        };
+
+        if (idx >= 0) {
+            if (entry.points >= this.leaderboardCache[idx].points) {
+                this.leaderboardCache[idx] = { ...this.leaderboardCache[idx], ...entry };
+            }
+        } else {
+            this.leaderboardCache.push(entry);
+        }
+
+        this.leaderboardCache.sort((a, b) => (b.points || 0) - (a.points || 0));
+        localStorage.setItem('catfish_leaderboard_cache', JSON.stringify(this.leaderboardCache));
+        this.renderLeaderboardUI(this.leaderboardCache);
     }
 
     async submitScore(points, generation, releasedCount) {
@@ -226,12 +272,14 @@ class MultiplayerManager {
                 this.showToast(`🏆 Score submitted to Global Leaderboard! (${points} PTS)`);
                 if (data.leaderboard) {
                     this.leaderboardCache = data.leaderboard;
+                    localStorage.setItem('catfish_leaderboard_cache', JSON.stringify(data.leaderboard));
                     this.renderLeaderboardUI(data.leaderboard);
                 }
             }
         } catch (e) {
-            console.warn('Score submission failed, saving locally:', e);
-            this.showToast(`🏆 Milestone achieved! ${points} PTS recorded.`);
+            console.warn('Score submission offline, saving to local leaderboard:', e);
+            this.updateLocalOfflineLeaderboard(this.playerName, points, generation, releasedCount);
+            this.showToast(`🏆 Milestone recorded! ${points} PTS`);
         }
     }
 
@@ -239,9 +287,10 @@ class MultiplayerManager {
         const listEl = document.getElementById('leaderboardBody');
         const headerTopScoreEl = document.getElementById('headerTopScore');
 
-        if (headerTopScoreEl && board.length > 0) {
+        if (headerTopScoreEl && board && board.length > 0) {
             const top = board[0];
-            headerTopScoreEl.textContent = `🏆 #1 ${top.name}: ${top.points} PTS`;
+            headerTopScoreEl.textContent = `🏆 #1 ${top.name}: ${top.points.toLocaleString()} PTS`;
+            headerTopScoreEl.style.cursor = 'pointer';
         }
 
         if (!listEl) return;
@@ -257,11 +306,11 @@ class MultiplayerManager {
             const medal = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : `#${idx + 1} `;
             const isSelf = entry.name.toLowerCase() === this.playerName.toLowerCase();
 
-            tr.style.background = isSelf ? 'rgba(78, 205, 196, 0.15)' : 'transparent';
+            tr.style.background = isSelf ? 'rgba(78, 205, 196, 0.18)' : 'transparent';
             if (isSelf) tr.style.fontWeight = 'bold';
 
             tr.innerHTML = `
-                <td style="color: var(--neon-amber);">${medal}${entry.name}</td>
+                <td style="color: var(--neon-amber);">${medal}${this.escapeHTML(entry.name)}</td>
                 <td style="color: var(--neon-cyan); text-align: right; font-weight: bold;">${entry.points.toLocaleString()} PTS</td>
                 <td style="text-align: center;">Gen ${entry.generation}</td>
                 <td style="text-align: center;">${entry.released || 0} Released</td>
@@ -279,11 +328,9 @@ class MultiplayerManager {
             if (!player.fish || player.fish.length === 0) return;
 
             player.fish.forEach((f) => {
-                // Render ghost hologram fish for remote online players
                 ctx.save();
                 ctx.globalAlpha = 0.55;
 
-                // Ghost aura circle
                 ctx.fillStyle = 'rgba(78, 205, 196, 0.2)';
                 ctx.strokeStyle = 'rgba(78, 205, 196, 0.6)';
                 ctx.lineWidth = 1.5;
@@ -291,7 +338,6 @@ class MultiplayerManager {
                 ctx.arc(f.x, f.y, 22, 0, Math.PI * 2);
                 ctx.fill(); ctx.stroke();
 
-                // Species icon and name label
                 ctx.font = "12px 'Share Tech Mono'";
                 ctx.fillStyle = '#4edcc4';
                 ctx.textAlign = 'center';
@@ -315,17 +361,26 @@ class MultiplayerManager {
 
     setupUIEvents() {
         const openLbBtn = document.getElementById('openLeaderboardBtn');
+        const headerTopScoreEl = document.getElementById('headerTopScore');
         const lbModal = document.getElementById('leaderboardModal');
         const closeLbBtn = document.getElementById('closeLeaderboard');
         const changeNameBtn = document.getElementById('changePlayerNameBtn');
 
-        openLbBtn?.addEventListener('click', () => {
+        const openModal = () => {
             this.fetchLeaderboard();
             if (lbModal) lbModal.style.display = 'flex';
-        });
+        };
+
+        openLbBtn?.addEventListener('click', openModal);
+        headerTopScoreEl?.addEventListener('click', openModal);
 
         closeLbBtn?.addEventListener('click', () => {
             if (lbModal) lbModal.style.display = 'none';
+        });
+
+        // Close modal when clicking backdrop overlay
+        lbModal?.addEventListener('click', (e) => {
+            if (e.target === lbModal) lbModal.style.display = 'none';
         });
 
         changeNameBtn?.addEventListener('click', () => {
@@ -343,6 +398,9 @@ class MultiplayerManager {
 
         const nameDisplay = document.getElementById('aquaristHandleDisplay');
         if (nameDisplay) nameDisplay.textContent = this.playerName;
+
+        // Render initial UI state immediately
+        this.renderLeaderboardUI(this.leaderboardCache);
     }
 
     showToast(message) {
