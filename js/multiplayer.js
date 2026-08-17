@@ -104,10 +104,17 @@ class MultiplayerManager {
             const consoleEl = document.getElementById('chatConsole');
             if (consoleEl) {
                 const entry = document.createElement('div');
-                entry.className = 'chat-entry multiplayer';
-                entry.innerHTML = `<span class="chat-sender" style="color: var(--neon-pink);">🌐 [Global] ${data.sender}:</span> <span class="chat-text">${data.text}</span>`;
+                const isSelf = data.senderId === this.socket?.id;
+                entry.className = isSelf ? 'chat-entry you' : 'chat-entry multiplayer';
+                const timeStr = data.time ? `[${data.time}] ` : '';
+                entry.innerHTML = `<span class="chat-time" style="font-size: 0.7rem; opacity: 0.7; margin-right: 4px;">${timeStr}</span><span class="chat-sender" style="color: ${isSelf ? 'var(--neon-green)' : 'var(--neon-pink)'}; font-weight: bold;">🌐 ${this.escapeHTML(data.sender)}:</span> <span class="chat-text" style="color: #fff;">${this.escapeHTML(data.text)}</span>`;
                 consoleEl.appendChild(entry);
                 consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+
+            // Audio notification for incoming chat messages from other players
+            if (window.gameAudio && data.senderId !== this.socket?.id) {
+                window.gameAudio.playButtonBeep();
             }
         });
 
@@ -174,8 +181,15 @@ class MultiplayerManager {
         if (this.socket && this.isOnline) {
             this.socket.emit('send_global_chat', { text: text.trim() });
         } else {
-            // Local fallback simulation
-            this.showToast("Note: Connect to Railway server for online global chat!");
+            // Local fallback if offline
+            const consoleEl = document.getElementById('chatConsole');
+            if (consoleEl) {
+                const entry = document.createElement('div');
+                entry.className = 'chat-entry you';
+                entry.innerHTML = `<span class="chat-sender">You (${this.escapeHTML(this.playerName)}):</span> <span class="chat-text">${this.escapeHTML(text)}</span>`;
+                consoleEl.appendChild(entry);
+                consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
         }
     }
 

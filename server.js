@@ -178,15 +178,18 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Global Multiplayer Chat Relay
+    // Global Multiplayer Live Chat Relay
     socket.on('send_global_chat', (data) => {
-        const senderName = players[socket.id] ? players[socket.id].name : 'Guest Aquarist';
+        if (!data || !data.text || !data.text.trim()) return;
+        const senderName = players[socket.id] ? players[socket.id].name : 'Aquarist';
         const msgPayload = {
+            senderId: socket.id,
             sender: senderName,
-            text: data.text,
-            time: new Date().toLocaleTimeString()
+            text: data.text.trim().substring(0, 300),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
 
+        console.log(`💬 [Live Chat] ${senderName}: ${msgPayload.text}`);
         io.emit('receive_global_chat', msgPayload);
     });
 

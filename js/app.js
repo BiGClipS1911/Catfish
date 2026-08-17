@@ -704,10 +704,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const text = chatInput.value.trim();
         if (text) {
             chatInput.value = '';
-            dialogue.handleUserSpeechInput(text);
-            if (isMultiplayerMode && multiplayer) {
+            if (multiplayer) {
                 multiplayer.sendGlobalChat(text);
             }
+            dialogue.handleUserSpeechInput(text);
         }
     }
 
