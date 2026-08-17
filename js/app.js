@@ -73,9 +73,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function resizeCanvas() {
         const container = canvas.parentElement;
-        canvas.width = container.clientWidth;
-        canvas.height = container.clientHeight;
-        tank.resize(canvas.width, canvas.height);
+        const width = (container && container.clientWidth > 100) ? container.clientWidth : 800;
+        const height = (container && container.clientHeight > 100) ? container.clientHeight : 550;
+        canvas.width = width;
+        canvas.height = height;
+        if (tank) tank.resize(width, height);
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();

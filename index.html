@@ -7,7 +7,8 @@
     <meta name="description" content="An evolutionary virtual pet simulation game. Feed, oxygenate, control temperature, breed 5 generations of Catfish and exotic fish species, clean fish poop, and compete on global multiplayer leaderboards!">
     <link rel="stylesheet" href="style.css">
     <!-- Socket.io Real-time Client Library -->
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script>if (typeof io === 'undefined') document.write('<script src="/socket.io/socket.io.js"><\/script>');</script>
 </head>
 <body>
 

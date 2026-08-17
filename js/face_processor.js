@@ -31,18 +31,52 @@ class FaceProcessor {
 
     async init(src = this.imageSrc) {
         return new Promise((resolve) => {
-            this.originalImage.crossOrigin = 'anonymous';
-            this.originalImage.onload = () => {
-                this.isLoaded = true;
-                this.processFace();
-                resolve();
+            let resolved = false;
+            const safeResolve = () => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve();
+                }
             };
-            this.originalImage.onerror = () => {
+
+            // 500ms Safety Timeout Guarantee (prevents hanging in file:// or CORS restricted modes)
+            const timeoutId = setTimeout(() => {
                 this.createFallbackFace();
                 this.isLoaded = true;
-                resolve();
-            };
-            this.originalImage.src = src;
+                safeResolve();
+            }, 500);
+
+            try {
+                if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
+                    this.originalImage.crossOrigin = 'anonymous';
+                }
+
+                this.originalImage.onload = () => {
+                    clearTimeout(timeoutId);
+                    this.isLoaded = true;
+                    try {
+                        this.processFace();
+                    } catch (e) {
+                        console.warn('CORS / Canvas error during face processing, using fallback face:', e);
+                        this.createFallbackFace();
+                    }
+                    safeResolve();
+                };
+
+                this.originalImage.onerror = () => {
+                    clearTimeout(timeoutId);
+                    this.createFallbackFace();
+                    this.isLoaded = true;
+                    safeResolve();
+                };
+
+                this.originalImage.src = src;
+            } catch (err) {
+                clearTimeout(timeoutId);
+                this.createFallbackFace();
+                this.isLoaded = true;
+                safeResolve();
+            }
         });
     }
 
