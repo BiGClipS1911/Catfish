@@ -878,7 +878,7 @@ body {
 
 /* Leaderboard Table */
 .leaderboard-container {
-    max-height: 380px;
+    max-height: 520px;
     overflow-y: auto;
     border: 1px solid rgba(78, 205, 196, 0.2);
     border-radius: 8px;
@@ -895,14 +895,15 @@ body {
 .leaderboard-table th {
     background: rgba(14, 24, 33, 0.95);
     color: var(--neon-cyan);
-    padding: 10px 14px;
+    padding: 9px 12px;
     border-bottom: 1px solid rgba(78, 205, 196, 0.3);
     position: sticky;
     top: 0;
+    z-index: 2;
 }
 
 .leaderboard-table td {
-    padding: 8px 14px;
+    padding: 7px 12px;
     border-bottom: 1px solid rgba(78, 205, 196, 0.1);
 }
 

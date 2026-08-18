@@ -1,9 +1,14 @@
 const DEFAULT_LEADERBOARD = [
     { name: "Aquarist Prime", points: 5500, generation: 5, released: 4, date: "2026-08-12" },
-    { name: "Dr. Seaman", points: 4200, generation: 4, released: 3, date: "2026-08-12" },
-    { name: "Oceanic Master", points: 3100, generation: 3, released: 2, date: "2026-08-11" },
-    { name: "AquaBreeder99", points: 2400, generation: 3, released: 2, date: "2026-08-10" },
-    { name: "Catfish Explorer", points: 1500, generation: 2, released: 1, date: "2026-08-09" }
+    { name: "Dr. Seaman", points: 4800, generation: 4, released: 3, date: "2026-08-12" },
+    { name: "Oceanic Master", points: 4200, generation: 4, released: 3, date: "2026-08-11" },
+    { name: "AquaBreeder99", points: 3600, generation: 3, released: 2, date: "2026-08-10" },
+    { name: "Neptune Voyager", points: 3100, generation: 3, released: 2, date: "2026-08-10" },
+    { name: "Coral Whisperer", points: 2700, generation: 3, released: 2, date: "2026-08-09" },
+    { name: "Catfish Explorer", points: 2200, generation: 2, released: 1, date: "2026-08-09" },
+    { name: "Abyssal Diver", points: 1800, generation: 2, released: 1, date: "2026-08-08" },
+    { name: "Triton Biologist", points: 1400, generation: 2, released: 1, date: "2026-08-08" },
+    { name: "Nautilus Novice", points: 1000, generation: 1, released: 0, date: "2026-08-07" }
 ];
 
 const SPECIES_PALETTES = {
