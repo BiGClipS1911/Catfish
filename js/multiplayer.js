@@ -326,11 +326,16 @@ class MultiplayerManager {
     }
 
     getSimplifiedLocalFish() {
+        const canvasW = (this.app.canvas && this.app.canvas.width) ? this.app.canvas.width : 800;
+        const canvasH = (this.app.canvas && this.app.canvas.height) ? this.app.canvas.height : 600;
+
         return (this.app.seamen || []).map(s => ({
             id: s.id,
             name: s.name,
             speciesId: s.speciesId,
             stage: s.stage,
+            xRatio: Math.round((s.x / canvasW) * 1000) / 1000,
+            yRatio: Math.round((s.y / canvasH) * 1000) / 1000,
             x: Math.round(s.x),
             y: Math.round(s.y),
             vx: Math.round((s.vx || 0) * 10) / 10,
@@ -552,20 +557,25 @@ class MultiplayerManager {
 
         ctx.save();
         const now = Date.now();
+        const canvasW = ctx.canvas ? ctx.canvas.width : 800;
+        const canvasH = ctx.canvas ? ctx.canvas.height : 600;
 
         this.remotePlayers.forEach((player) => {
             if (!player.fish || !Array.isArray(player.fish) || player.fish.length === 0) return;
 
             player.fish.forEach((f) => {
+                const targetX = (f.xRatio !== undefined && f.xRatio !== null) ? f.xRatio * canvasW : f.x;
+                const targetY = (f.yRatio !== undefined && f.yRatio !== null) ? f.yRatio * canvasH : f.y;
+
                 if (f.lerpX === undefined) {
-                    f.lerpX = f.x;
-                    f.lerpY = f.y;
+                    f.lerpX = targetX;
+                    f.lerpY = targetY;
                     f.lerpAngle = f.angle || 0;
                 }
 
                 // 60 FPS LERP position smoothing across screens
-                f.lerpX += (f.x - f.lerpX) * 0.22;
-                f.lerpY += (f.y - f.lerpY) * 0.22;
+                f.lerpX += (targetX - f.lerpX) * 0.22;
+                f.lerpY += (targetY - f.lerpY) * 0.22;
                 f.lerpAngle += ((f.angle || 0) - f.lerpAngle) * 0.22;
 
                 const drawX = f.lerpX;
