@@ -1,7 +1,7 @@
 /**
  * CATFISH - Evolutionary Simulation & Multiplayer Backend Server
  * Express web server with Socket.io real-time multiplayer, global leaderboards,
- * and Railway container hosting support.
+ * action relay, and Railway container hosting support.
  */
 
 const express = require('express');
@@ -13,20 +13,45 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
+
+// Unrestricted CORS Middleware for Express (Placed at top of pipeline)
+app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'false');
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept, Authorization'],
+    credentials: false
+}));
+
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
+
+// Configure Socket.IO with WebSockets + Long Polling for Railway & Proxy Compatibility
 const io = new Server(server, {
     cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+        origin: (origin, callback) => callback(null, true),
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
+        credentials: false
+    },
+    pingTimeout: 20000,
+    pingInterval: 10000,
+    transports: ['websocket', 'polling'],
+    allowEIO3: true
 });
 
 const PORT = process.env.PORT || 3000;
 const LEADERBOARD_FILE = path.join(__dirname, 'leaderboard.json');
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname)));
 
 // Helper: Read Leaderboard Data
 function getLeaderboard() {
@@ -41,12 +66,10 @@ function getLeaderboard() {
     return [];
 }
 
-// Helper: Save Leaderboard Data (keeps all registered players, sorted by points)
+// Helper: Save Leaderboard Data
 function saveLeaderboard(board) {
     try {
-        // Sort descending by points
         board.sort((a, b) => (b.points || 0) - (a.points || 0));
-        // Keep up to 1000 players so every player is tracked
         const trimmed = board.slice(0, 1000);
         fs.writeFileSync(LEADERBOARD_FILE, JSON.stringify(trimmed, null, 2), 'utf8');
         return trimmed;
@@ -56,13 +79,24 @@ function saveLeaderboard(board) {
     }
 }
 
+let leaderboardInMemory = getLeaderboard();
+let saveTimeout = null;
+
+function saveLeaderboardDebounced() {
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(() => {
+        saveLeaderboard(leaderboardInMemory);
+    }, 2000);
+}
+
 // Helper: Add or Update Leaderboard Entry in Real-Time
 function updateOrAddLeaderboardEntry(name, points = 0, generation = 1, released = 0) {
-    if (!name || !name.trim()) return getLeaderboard();
+    if (!name || !name.trim()) return leaderboardInMemory;
 
     const cleanName = name.trim().substring(0, 24);
-    const currentBoard = getLeaderboard();
-    const existingIndex = currentBoard.findIndex(entry => entry.name.toLowerCase() === cleanName.toLowerCase());
+    const existingIndex = leaderboardInMemory.findIndex(entry => entry.name.toLowerCase() === cleanName.toLowerCase());
+
+    const prevTopPlayer = leaderboardInMemory.length > 0 ? leaderboardInMemory[0].name : null;
 
     const entryData = {
         name: cleanName,
@@ -74,33 +108,59 @@ function updateOrAddLeaderboardEntry(name, points = 0, generation = 1, released 
 
     let boardChanged = false;
     if (existingIndex >= 0) {
-        if (entryData.points >= currentBoard[existingIndex].points) {
-            currentBoard[existingIndex] = {
-                ...currentBoard[existingIndex],
-                ...entryData
+        const existing = leaderboardInMemory[existingIndex];
+        if (
+            entryData.points > (existing.points || 0) ||
+            entryData.generation > (existing.generation || 1) ||
+            entryData.released > (existing.released || 0)
+        ) {
+            leaderboardInMemory[existingIndex] = {
+                ...existing,
+                ...entryData,
+                points: Math.max(entryData.points, existing.points || 0),
+                generation: Math.max(entryData.generation, existing.generation || 1),
+                released: Math.max(entryData.released, existing.released || 0)
             };
             boardChanged = true;
         }
     } else {
-        currentBoard.push(entryData);
+        leaderboardInMemory.push(entryData);
         boardChanged = true;
     }
 
     if (boardChanged) {
-        const updatedBoard = saveLeaderboard(currentBoard);
-        io.emit('leaderboard_update', updatedBoard);
-        return updatedBoard;
+        leaderboardInMemory.sort((a, b) => (b.points || 0) - (a.points || 0));
+        saveLeaderboardDebounced();
+
+        const newTopPlayer = leaderboardInMemory.length > 0 ? leaderboardInMemory[0].name : null;
+        if (newTopPlayer && prevTopPlayer && newTopPlayer.toLowerCase() !== prevTopPlayer.toLowerCase()) {
+            broadcastChatMessage(
+                'system',
+                'System',
+                `🏆 LEADERBOARD CROWN: Aquarist ${newTopPlayer} has claimed #1 on the Global Railway Leaderboard with ${leaderboardInMemory[0].points.toLocaleString()} PTS!`,
+                true
+            );
+        }
+
+        io.emit('leaderboard_update', leaderboardInMemory);
     }
-    return currentBoard;
+    return leaderboardInMemory;
 }
 
 // REST APIs
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', onlinePlayers: Object.keys(players).length, timestamp: new Date().toISOString() });
+    res.json({
+        status: 'ok',
+        service: 'CATFISH Railway Server',
+        onlinePlayers: Object.keys(players).length,
+        uptimeSeconds: Math.floor(process.uptime()),
+        railwayDomain: process.env.RAILWAY_PUBLIC_DOMAIN || null,
+        timestamp: new Date().toISOString()
+    });
 });
 
 app.get('/api/leaderboard', (req, res) => {
-    res.json(getLeaderboard());
+    res.json(leaderboardInMemory);
 });
 
 app.post('/api/leaderboard', (req, res) => {
@@ -114,16 +174,37 @@ app.post('/api/leaderboard', (req, res) => {
 
 // Socket.io Real-Time Multiplayer State
 const players = {}; // socketId -> player object
+const chatHistory = []; // Rolling buffer for last 50 global messages
+
+function broadcastChatMessage(senderId, senderName, text, isSystem = false) {
+    if (!text || !text.trim()) return null;
+    const msgPayload = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        senderId: senderId || 'system',
+        sender: senderName || 'System',
+        text: text.trim().substring(0, 300),
+        isSystem: !!isSystem,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    chatHistory.push(msgPayload);
+    if (chatHistory.length > 50) chatHistory.shift();
+
+    io.emit('receive_global_chat', msgPayload);
+    return msgPayload;
+}
 
 io.on('connection', (socket) => {
-    console.log(`🔌 New client connected: ${socket.id}`);
+    console.log(`🔌 New client connected: ${socket.id} from ${socket.handshake.address}`);
 
-    // Send current leaderboard & online count on connect
-    socket.emit('leaderboard_update', getLeaderboard());
+    // Send current leaderboard, chat history & online count on connect
+    socket.emit('leaderboard_update', leaderboardInMemory);
+    socket.emit('chat_history', chatHistory);
     io.emit('online_count', Object.keys(players).length);
 
     // Player registers fish & name into online lobby
     socket.on('join_online_lobby', (playerData) => {
+        const isNewPlayer = !players[socket.id];
         players[socket.id] = {
             id: socket.id,
             name: playerData.name || `Aquarist_${socket.id.substring(0, 4)}`,
@@ -134,6 +215,10 @@ io.on('connection', (socket) => {
         };
 
         console.log(`🌊 ${players[socket.id].name} joined global aquarium lobby.`);
+
+        if (isNewPlayer) {
+            broadcastChatMessage('system', 'System', `🌐 Aquarist ${players[socket.id].name} connected to live global chat!`, true);
+        }
 
         // Immediately add/update player on real-time leaderboard
         updateOrAddLeaderboardEntry(
@@ -155,52 +240,63 @@ io.on('connection', (socket) => {
 
     // Real-time fish state sync (relayed to all other connected clients)
     socket.on('sync_fish_state', (data) => {
-        if (players[socket.id]) {
-            players[socket.id].fish = data.fish;
-            players[socket.id].points = data.points;
-            players[socket.id].generation = data.generation;
+        if (players[socket.id] && data) {
+            if (data.name && data.name.trim()) {
+                players[socket.id].name = data.name.trim().substring(0, 24);
+            }
+            players[socket.id].fish = data.fish || [];
+            players[socket.id].points = data.points || 0;
+            players[socket.id].generation = data.generation || 1;
 
             // Sync score & stats to real-time leaderboard
             updateOrAddLeaderboardEntry(
                 players[socket.id].name,
-                data.points,
-                data.generation,
+                data.points || 0,
+                data.generation || 1,
                 data.released || 0
             );
 
             socket.broadcast.emit('remote_fish_update', {
                 playerId: socket.id,
                 playerName: players[socket.id].name,
-                fish: data.fish,
-                points: data.points,
-                generation: data.generation
+                fish: data.fish || [],
+                points: data.points || 0,
+                generation: data.generation || 1
             });
         }
+    });
+
+    // Real-Time Score Submission Relay
+    socket.on('submit_score', (scoreData) => {
+        if (!scoreData) return;
+        const senderName = (players[socket.id] ? players[socket.id].name : scoreData.name) || `Aquarist_${socket.id.substring(0, 4)}`;
+        updateOrAddLeaderboardEntry(
+            senderName,
+            scoreData.points || 0,
+            scoreData.generation || 1,
+            scoreData.released || 0
+        );
     });
 
     // Global Multiplayer Live Chat Relay
     socket.on('send_global_chat', (data) => {
         if (!data || !data.text || !data.text.trim()) return;
         const senderName = players[socket.id] ? players[socket.id].name : 'Aquarist';
-        const msgPayload = {
-            senderId: socket.id,
-            sender: senderName,
-            text: data.text.trim().substring(0, 300),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-
-        console.log(`💬 [Live Chat] ${senderName}: ${msgPayload.text}`);
-        io.emit('receive_global_chat', msgPayload);
+        console.log(`💬 [Live Chat] ${senderName}: ${data.text}`);
+        broadcastChatMessage(socket.id, senderName, data.text, false);
     });
 
-    // Multiplayer Action Relay (e.g. feeding pellets or releasing hearts in public tank)
+    // Multiplayer Action Relay (feeding pellets, glass taps, aphrodisiacs, squeegee clean)
     socket.on('player_action', (actionData) => {
+        if (!actionData) return;
         const senderName = players[socket.id] ? players[socket.id].name : 'Aquarist';
         socket.broadcast.emit('remote_player_action', {
+            senderId: socket.id,
             sender: senderName,
             type: actionData.type,
             x: actionData.x,
-            y: actionData.y
+            y: actionData.y,
+            isAphrodisiac: actionData.isAphrodisiac || false
         });
     });
 
@@ -208,6 +304,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         if (players[socket.id]) {
             console.log(`❌ ${players[socket.id].name} left online lobby.`);
+            broadcastChatMessage('system', 'System', `🚪 Aquarist ${players[socket.id].name} disconnected.`, true);
             delete players[socket.id];
             io.emit('player_left', { id: socket.id });
             io.emit('online_count', Object.keys(players).length);
@@ -217,5 +314,6 @@ io.on('connection', (socket) => {
 
 // Start Server (Binds 0.0.0.0 for Railway / Container hosting)
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 CATFISH Server running on port ${PORT}`);
+    console.log(`🚀 CATFISH Railway Server running on port ${PORT} (http://0.0.0.0:${PORT})`);
 });
+

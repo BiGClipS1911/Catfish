@@ -85,6 +85,12 @@ body {
     background: rgba(46, 204, 113, 0.15);
     border: 1px solid var(--neon-green);
     color: var(--neon-green);
+    transition: all 0.2s ease;
+}
+
+.status-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(78, 205, 196, 0.4);
 }
 
 .quest-bar {
@@ -636,6 +642,24 @@ body {
     padding: 1px 6px;
     border-radius: 4px;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.small-btn:hover {
+    background: rgba(78, 205, 196, 0.2);
+    color: #fff;
+    border-color: var(--neon-cyan);
+}
+
+.chat-badge {
+    background: #e74c3c;
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 10px;
+    margin-left: 4px;
+    vertical-align: middle;
 }
 
 .chat-console {

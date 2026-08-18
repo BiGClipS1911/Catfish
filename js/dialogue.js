@@ -151,8 +151,6 @@ class DialogueEngine {
     }
 
     handleUserSpeechInput(text) {
-        this.logMessage("You", text);
-
         // Analyze text for keywords
         const lower = text.toLowerCase();
         let matchedResponse = null;
@@ -198,6 +196,14 @@ class DialogueEngine {
         const durationSeconds = Math.max(2, text.length * 0.08);
         this.seaman.triggerSpeechMouth(durationSeconds);
 
+        // Do not play vocal speech synthesis if game sound is muted
+        if (window.gameAudio && window.gameAudio.isMuted) {
+            if (this.speechSynth) {
+                try { this.speechSynth.cancel(); } catch (e) {}
+            }
+            return;
+        }
+
         if (this.speechSynth) {
             this.speechSynth.cancel(); // Stop any pending speech
 
@@ -221,14 +227,17 @@ class DialogueEngine {
     }
 
     logMessage(sender, message) {
+        if (!message) return;
         this.chatLog.push({ sender, message, time: new Date().toLocaleTimeString() });
-        const consoleEl = document.getElementById('chatConsole');
-        if (consoleEl) {
-            const entry = document.createElement('div');
-            entry.className = `chat-entry ${sender.toLowerCase()}`;
-            entry.innerHTML = `<span class="chat-sender">${sender}:</span> <span class="chat-text">${message}</span>`;
-            consoleEl.appendChild(entry);
-            consoleEl.scrollTop = consoleEl.scrollHeight;
+
+        if (window.multiplayer) {
+            window.multiplayer.appendChatMessage({
+                id: 'local_' + Date.now(),
+                senderId: sender.toLowerCase() === 'you' ? 'self' : 'seaman',
+                sender: sender,
+                text: message,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
         }
     }
 }

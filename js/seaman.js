@@ -721,6 +721,35 @@ class Seaman {
     drawHealthBarOverlay(ctx, headRadius) {
         let topY = this.y - headRadius - 18;
 
+        // Render Local Player Handle Badge Pill (Above Fish Head)
+        const playerHandle = (window.multiplayer && window.multiplayer.playerName) || localStorage.getItem('catfish_player_name') || 'Aquarist';
+        const playerBadgeText = `👤 ${playerHandle} (YOU)`;
+
+        ctx.save();
+        ctx.font = "bold 11px 'Share Tech Mono', sans-serif";
+        const pTxtW = ctx.measureText(playerBadgeText).width + 16;
+        const pPillX = this.x - pTxtW / 2;
+        const pPillY = topY - 24;
+
+        ctx.fillStyle = 'rgba(5, 12, 18, 0.88)';
+        ctx.strokeStyle = '#2ecc71';
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.roundRect(pPillX, pPillY, pTxtW, 20, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#2ecc71';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#2ecc71';
+        ctx.shadowBlur = 4;
+        ctx.fillText(playerBadgeText, this.x, pPillY + 14);
+        ctx.restore();
+
+        topY -= 28;
+
         // Render Action Status Pill Badge over head
         if (!this.isDead) {
             let badgeText = '';

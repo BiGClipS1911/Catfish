@@ -653,14 +653,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                     s.targetY = pos.y;
                 }
                 dialogue.triggerEventResponse('tappedGlass');
+                if (isMultiplayerMode && multiplayer) {
+                    multiplayer.sendPlayerAction('tap', pos.x, pos.y);
+                }
             } else if (currentTool === 'feed') {
                 tank.addFood(pos.x, pos.y, false);
+                if (isMultiplayerMode && multiplayer) {
+                    multiplayer.sendPlayerAction('feed', pos.x, pos.y);
+                }
             } else if (currentTool === 'love') {
                 tank.addFood(pos.x, pos.y, true);
                 triggerMatingRitual();
+                if (isMultiplayerMode && multiplayer) {
+                    multiplayer.sendPlayerAction('love', pos.x, pos.y, { isAphrodisiac: true });
+                }
             } else if (currentTool === 'squeegee') {
                 tank.scrubAt(pos.x, pos.y);
                 cleanTankAndScoopBones();
+                if (isMultiplayerMode && multiplayer) {
+                    multiplayer.sendPlayerAction('scrub', pos.x, pos.y);
+                }
             }
         }
     });
@@ -673,6 +685,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             grabbedSeaman.y = pos.y;
         } else if (currentTool === 'squeegee') {
             tank.scrubAt(pos.x, pos.y);
+            if (isMultiplayerMode && multiplayer && Math.random() < 0.25) {
+                multiplayer.sendPlayerAction('scrub', pos.x, pos.y);
+            }
         }
     });
 
@@ -899,11 +914,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sendBtn = document.getElementById('sendBtn');
     const micBtn = document.getElementById('micBtn');
 
-    function sendChatMessage() {
-        if (!chatInput) return;
-        const text = chatInput.value.trim();
+    const floatingChatInput = document.getElementById('floatingChatInput');
+    const floatingSendBtn = document.getElementById('floatingSendBtn');
+    const floatingMicBtn = document.getElementById('floatingMicBtn');
+
+    function sendChatMessage(inputEl) {
+        const targetInput = inputEl || chatInput;
+        if (!targetInput) return;
+        const text = targetInput.value.trim();
         if (text) {
-            chatInput.value = '';
+            targetInput.value = '';
+            if (floatingChatInput && targetInput !== floatingChatInput) floatingChatInput.value = '';
+            if (chatInput && targetInput !== chatInput) chatInput.value = '';
+
             if (multiplayer) {
                 multiplayer.sendGlobalChat(text);
             }
@@ -911,9 +934,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    sendBtn?.addEventListener('click', sendChatMessage);
-    chatInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(); });
-    micBtn?.addEventListener('click', () => { audio.playButtonBeep(); dialogue.toggleMic(); });
+    sendBtn?.addEventListener('click', () => sendChatMessage(chatInput));
+    chatInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(chatInput); });
+
+    floatingSendBtn?.addEventListener('click', () => sendChatMessage(floatingChatInput));
+    floatingChatInput?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendChatMessage(floatingChatInput); });
+
+    const handleMicToggle = () => { audio.playButtonBeep(); dialogue.toggleMic(); };
+    micBtn?.addEventListener('click', handleMicToggle);
+    floatingMicBtn?.addEventListener('click', handleMicToggle);
 
     document.getElementById('muteBtn')?.addEventListener('click', (e) => {
         const isMuted = audio.toggleMute();

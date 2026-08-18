@@ -147,8 +147,16 @@ class GameAudio {
 
     toggleMute() {
         this.isMuted = !this.isMuted;
-        if (this.ambientGain) {
+        if (this.ambientGain && this.ctx) {
             this.ambientGain.gain.setValueAtTime(this.isMuted ? 0 : 0.15, this.ctx.currentTime);
+        }
+        // Cancel all active fish vocal speech synthesis immediately on mute
+        if (this.isMuted && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+                window.speechSynthesis.cancel();
+            } catch (e) {
+                console.warn('Error canceling speech synthesis:', e);
+            }
         }
         return this.isMuted;
     }
