@@ -45,16 +45,16 @@ class MultiplayerManager {
 
     getServerUrl(path = '') {
         let customUrl = localStorage.getItem('catfish_railway_url') || '';
-        let baseUrl = customUrl || window.CATFISH_SERVER_URL || '';
+        let baseUrl = customUrl || window.CATFISH_SERVER_URL || 'https://catfish-production.up.railway.app';
 
-        // Auto-resolve to origin ONLY if hosted on Railway/localhost (NOT on itch.io static CDN)
-        if (!baseUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+        // Auto-resolve to origin if hosted directly on Railway or localhost
+        if (!customUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
             if (!this.isExternalHost()) {
                 baseUrl = window.location.origin;
             }
         }
 
-        baseUrl = baseUrl ? baseUrl.replace(/\/$/, '') : '';
+        baseUrl = baseUrl ? baseUrl.replace(/\/$/, '') : 'https://catfish-production.up.railway.app';
 
         // Auto-fix protocol if missing
         if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
@@ -69,27 +69,16 @@ class MultiplayerManager {
 
         if (typeof io !== 'undefined') {
             try {
-                if (!targetUrl && (window.location.protocol === 'file:' || this.isExternalHost())) {
-                    console.log('Running on external host (e.g. itch.io) without custom Railway URL configured. Standalone local mode.');
-                    this.updateOnlineBadge('offline');
-                    if (this.isExternalHost() && !localStorage.getItem('catfish_railway_url_notified')) {
-                        setTimeout(() => {
-                            this.showToast('🎮 Playing on itch.io? Click "🔴 Standalone Local" badge to set your Railway Server URL!');
-                            localStorage.setItem('catfish_railway_url_notified', 'true');
-                        }, 2500);
-                    }
-                } else {
-                    const socketUrl = targetUrl || undefined;
-                    this.socket = io(socketUrl, {
-                        transports: ['websocket', 'polling'],
-                        reconnection: true,
-                        reconnectionAttempts: Infinity,
-                        reconnectionDelay: 1000,
-                        reconnectionDelayMax: 5000,
-                        timeout: 20000
-                    });
-                    this.setupSocketListeners();
-                }
+                this.updateOnlineBadge('connecting');
+                this.socket = io(targetUrl, {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionAttempts: Infinity,
+                    reconnectionDelay: 1000,
+                    reconnectionDelayMax: 5000,
+                    timeout: 20000
+                });
+                this.setupSocketListeners();
             } catch (e) {
                 console.warn('Socket.io connection failed, operating in local offline mode:', e);
                 this.updateOnlineBadge('offline');
