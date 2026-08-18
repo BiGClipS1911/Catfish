@@ -50,16 +50,21 @@ class MultiplayerManager {
 
     getServerUrl(path = '') {
         let customUrl = localStorage.getItem('catfish_railway_url') || '';
-        let baseUrl = customUrl || window.CATFISH_SERVER_URL || 'https://catfish-production.up.railway.app';
+        let baseUrl = customUrl || window.CATFISH_SERVER_URL || '';
 
-        // Auto-resolve to origin if hosted directly on Railway or localhost
+        // Priority 1: If running directly on Express/Railway or localhost, auto-resolve to origin
         if (!customUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
             if (!this.isExternalHost()) {
                 baseUrl = window.location.origin;
             }
         }
 
-        baseUrl = baseUrl ? baseUrl.replace(/\/$/, '') : 'https://catfish-production.up.railway.app';
+        // Priority 2: Fallback to global window.CATFISH_SERVER_URL
+        if (!baseUrl) {
+            baseUrl = window.CATFISH_SERVER_URL || '';
+        }
+
+        baseUrl = baseUrl ? baseUrl.replace(/\/$/, '') : '';
 
         // Auto-fix protocol if missing
         if (baseUrl && !baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
@@ -75,7 +80,8 @@ class MultiplayerManager {
         if (typeof io !== 'undefined') {
             try {
                 this.updateOnlineBadge('connecting');
-                this.socket = io(targetUrl, {
+                const socketUrl = targetUrl || undefined;
+                this.socket = io(socketUrl, {
                     transports: ['websocket', 'polling'],
                     reconnection: true,
                     reconnectionAttempts: Infinity,
@@ -111,6 +117,27 @@ class MultiplayerManager {
             this.isOnline = false;
             this.updateOnlineBadge('offline');
             console.log('🔴 Disconnected from Multiplayer Server.');
+        });
+
+        this.socket.on('connect_error', (err) => {
+            console.warn('Socket connection attempt error:', err?.message || err);
+
+            // Fallback retry to origin if custom URL fails on a web server
+            if (!this.hasTriedOriginFallback && typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
+                const origin = window.location.origin;
+                const currentTarget = this.getServerUrl();
+                if (currentTarget !== origin && !this.isExternalHost()) {
+                    this.hasTriedOriginFallback = true;
+                    console.log(`Auto-reconnecting to server origin: ${origin}`);
+                    try { this.socket.disconnect(); } catch (e) {}
+                    this.socket = io(origin, {
+                        transports: ['websocket', 'polling'],
+                        reconnection: true,
+                        timeout: 20000
+                    });
+                    this.setupSocketListeners();
+                }
+            }
         });
 
         this.socket.on('reconnect_attempt', () => {
