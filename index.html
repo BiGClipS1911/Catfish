@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CATFISH - Evolutionary Breeding, Aquatic Simulation & Multiplayer</title>
-    <meta name="description" content="An evolutionary virtual pet simulation game. Feed, oxygenate, control temperature, breed 5 generations of Catfish and exotic fish species, clean fish poop, and compete on global multiplayer leaderboards!">
+    <title>CATFISH - Evolutionary Breeding, Aquatic Simulation & Real-Time Railway Multiplayer</title>
+    <meta name="description" content="An evolutionary virtual pet simulation game. Feed, oxygenate, control temperature, breed 5 generations of Catfish and exotic fish species, clean fish poop, chat live globally, and compete on Top 10 real-time Railway multiplayer leaderboards!">
     <link rel="stylesheet" href="style.css">
     <!-- Socket.io Real-time Client Library -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
@@ -98,7 +98,7 @@
                     </div>
                     
                     <div id="selectedFishBio" class="bio-text">
-                        Bottom scavenger. Likes dim lighting & clean substrate.
+                        Selecting creature...
                     </div>
 
                     <!-- Evolution Growth Bar -->
@@ -229,9 +229,9 @@
 
     <!-- WELCOME AQUARIST HANDLE ENTRY MODAL -->
     <div id="nameEntryModal" class="modal-overlay" style="display: none;">
-        <div class="modal-card" style="border-color: var(--neon-cyan); text-align: center; width: 420px;">
+        <div class="modal-card" style="border-color: var(--neon-cyan); text-align: center; width: 440px;">
             <h2 style="font-family: 'Orbitron'; color: var(--neon-cyan); font-size: 1.5rem;">👋 WELCOME AQUARIST!</h2>
-            <p style="font-family: 'Share Tech Mono'; color: var(--text-muted); margin: 8px 0;">Enter your name to begin your laboratory simulation and join global online leaderboards:</p>
+            <p style="font-family: 'Share Tech Mono'; color: var(--text-muted); margin: 8px 0;">Enter your handle to join real-time Railway multiplayer, global chat, and live Top 10 leaderboards:</p>
             
             <input type="text" id="aquaristNameInput" class="chat-input" style="font-size: 1rem; text-align: center; padding: 10px; margin: 10px 0;" placeholder="Enter your name (e.g. Captain Catfish)" maxlength="24" autocomplete="off">
             
