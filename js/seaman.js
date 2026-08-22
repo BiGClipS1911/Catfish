@@ -209,8 +209,16 @@ class Seaman {
             if (this.digestionTimer <= 0) {
                 // Emit Fish Poop particle! Goldfish poop 2x!
                 tank.addPoop(this.x, this.y);
+                if (window.multiplayerManager) {
+                    window.multiplayerManager.sendPlayerAction('poop', Math.round(this.x), Math.round(this.y));
+                }
                 if (this.speciesId === 'goldfish') {
-                    setTimeout(() => tank.addPoop(this.x + 10, this.y), 1000);
+                    setTimeout(() => {
+                        tank.addPoop(this.x + 10, this.y);
+                        if (window.multiplayerManager) {
+                            window.multiplayerManager.sendPlayerAction('poop', Math.round(this.x + 10), Math.round(this.y));
+                        }
+                    }, 1000);
                 }
             }
         }

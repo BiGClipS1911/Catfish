@@ -18,8 +18,9 @@ const server = http.createServer(app);
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
     res.setHeader('Access-Control-Allow-Credentials', 'false');
+    res.setHeader('Access-Control-Allow-Private-Network', 'true');
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
@@ -29,7 +30,7 @@ app.use((req, res, next) => {
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept, Authorization'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control'],
     credentials: false
 }));
 
@@ -44,7 +45,7 @@ const io = new Server(server, {
         allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
         credentials: false
     },
-    pingTimeout: 20000,
+    pingTimeout: 25000,
     pingInterval: 10000,
     transports: ['websocket', 'polling'],
     allowEIO3: true
@@ -202,6 +203,11 @@ io.on('connection', (socket) => {
     socket.emit('chat_history', chatHistory);
     io.emit('online_count', Object.keys(players).length);
 
+    // Heartbeat / ping listener
+    socket.on('client_ping', () => {
+        socket.emit('server_pong', { time: Date.now() });
+    });
+
     // Player registers fish & name into online lobby
     socket.on('join_online_lobby', (playerData) => {
         const isNewPlayer = !players[socket.id];
@@ -286,17 +292,25 @@ io.on('connection', (socket) => {
         broadcastChatMessage(socket.id, senderName, data.text, false);
     });
 
-    // Multiplayer Action Relay (feeding pellets, glass taps, aphrodisiacs, squeegee clean)
+    // Multiplayer Action Relay (feeding pellets, glass taps, aphrodisiacs, squeegee clean, mating, elder release, env toggles, poops)
     socket.on('player_action', (actionData) => {
         if (!actionData) return;
         const senderName = players[socket.id] ? players[socket.id].name : 'Aquarist';
+        
+        // If releasing elder frog-fish, broadcast system announcement
+        if (actionData.type === 'release' && actionData.fishName) {
+            broadcastChatMessage(
+                'system',
+                'System',
+                `🌿 RELEASE CELEBRATION: Aquarist ${senderName} released ${actionData.fishName} (Elder Frog-Fish) into the wild! (+1000 PTS)`,
+                true
+            );
+        }
+
         socket.broadcast.emit('remote_player_action', {
+            ...actionData,
             senderId: socket.id,
-            sender: senderName,
-            type: actionData.type,
-            x: actionData.x,
-            y: actionData.y,
-            isAphrodisiac: actionData.isAphrodisiac || false
+            sender: senderName
         });
     });
 

@@ -343,6 +343,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             multiplayer.showToast(`💖 ${p1.name} & ${p2.name} naturally initiated courtship!`);
         }
 
+        if (multiplayer) {
+            multiplayer.sendPlayerAction('mating', Math.round((p1.x + p2.x) / 2), Math.round((p1.y + p2.y) / 2));
+        }
+
         p1.startMatingWith(p2);
         p2.startMatingWith(p1);
 
@@ -560,6 +564,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const idx = seamen.indexOf(selectedFish);
             if (idx !== -1) {
                 const releasedName = selectedFish.name;
+                const releaseX = selectedFish.x;
+                const releaseY = selectedFish.y;
                 seamen.splice(idx, 1);
                 currentGeneration++;
                 researchPoints += 1000;
@@ -568,7 +574,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 dialogue.speak(`Hooray! ${releasedName} was released into the wild! Dynasty advanced to Generation ${currentGeneration}! (+1000 PTS)`);
                 multiplayer.showToast(`🌿 Released ${releasedName}! Advanced to Gen ${currentGeneration} (+1000 PTS)`);
 
-                // Auto submit score to leaderboard
+                // Auto submit score to leaderboard & broadcast to multiplayer
+                multiplayer.sendPlayerAction('release', releaseX, releaseY, { fishName: releasedName, generation: currentGeneration });
                 multiplayer.submitScore(researchPoints, currentGeneration, totalFishReleased);
 
                 selectedFish = seamen[0] || null;
@@ -724,6 +731,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         tank.aeratorOn = !tank.aeratorOn;
         e.target.classList.toggle('active', tank.aeratorOn);
         multiplayer.showToast(tank.aeratorOn ? '💨 Aerator Pump turned ON' : '⏸️ Aerator Pump turned OFF');
+        if (multiplayer) {
+            multiplayer.sendPlayerAction('env_toggle', 0, 0, { key: 'aerator', value: tank.aeratorOn });
+        }
     });
 
     document.getElementById('heaterBtn')?.addEventListener('click', (e) => {
@@ -731,6 +741,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         tank.heaterOn = !tank.heaterOn;
         e.target.classList.toggle('active', tank.heaterOn);
         multiplayer.showToast(tank.heaterOn ? '🔥 Water Heater turned ON' : '❄️ Water Heater turned OFF');
+        if (multiplayer) {
+            multiplayer.sendPlayerAction('env_toggle', 0, 0, { key: 'heater', value: tank.heaterOn });
+        }
     });
 
     document.getElementById('lightBtn')?.addEventListener('click', (e) => {
@@ -738,6 +751,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         tank.lightOn = !tank.lightOn;
         e.target.classList.toggle('active', tank.lightOn);
         multiplayer.showToast(tank.lightOn ? '💡 Tank Light turned ON' : '🌙 Tank Light turned OFF');
+        if (multiplayer) {
+            multiplayer.sendPlayerAction('env_toggle', 0, 0, { key: 'light', value: tank.lightOn });
+        }
     });
 
     // Toggle Multiplayer Lobby Mode

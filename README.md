@@ -46,6 +46,21 @@ railway domain
 
 ---
 
+## 🕹️ How to Deploy HTML5 Web Build to itch.io
+
+1. **Zip the Project Files**:
+   Select `index.html`, `style.css`, `server.js`, `package.json`, `Procfile`, `railway.json`, `leaderboard.json`, `Images/`, and `js/` directory, then compress them into a single `.zip` file (e.g. `catfish-itch.zip`).
+2. **Upload to itch.io**:
+   - Go to [itch.io/game/new](https://itch.io/game/new).
+   - Under **Kind of project**, choose **HTML** (You have a zip file of static files that will be played in the browser).
+   - Click **Upload files** and select `catfish-itch.zip`. Check the box **"This file will be played in the browser"**.
+   - Embed options: Set Viewport dimensions to **840px wide by 660px high** (or check "Mobile friendly" / "Enable fullscreen button").
+3. **Always Connected Railway Server Integration**:
+   - The game will automatically detect it is running inside an itch.io iframe and connect to your Railway server domain (`https://catfish-production.up.railway.app`).
+   - All real-time multiplayer fish replication, live chat, and global leaderboards work out of the box!
+
+---
+
 ## 🎮 How to Play
 
 1. **Vital Care**: Keep O2 > 60% with the Aerator Pump, keep temperature between 18–24°C with the Water Heater, and scrub fish poop (💩) using the Squeegee.

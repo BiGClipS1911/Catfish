@@ -8,7 +8,10 @@
     <link rel="stylesheet" href="style.css">
     <!-- Socket.io Real-time Client Library -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script>if (typeof io === 'undefined') document.write('<script src="/socket.io/socket.io.js"><\/script>');</script>
+    <script>
+        if (typeof io === 'undefined') document.write('<script src="/socket.io/socket.io.js"><\/script>');
+        window.CATFISH_SERVER_URL = window.CATFISH_SERVER_URL || "https://catfish-production.up.railway.app";
+    </script>
 </head>
 <body>
 

@@ -11,6 +11,8 @@ const DEFAULT_LEADERBOARD = [
     { name: "Nautilus Novice", points: 1000, generation: 1, released: 0, date: "2026-08-07" }
 ];
 
+const DEFAULT_RAILWAY_URL = 'https://catfish-production.up.railway.app';
+
 const SPECIES_PALETTES = {
     catfish: { dark: '#1b3b2b', mid: '#2e5c46', light: '#4b8c6e', icon: '🐱' },
     angler:  { dark: '#19152b', mid: '#2c2547', light: '#483d73', icon: '💡' },
@@ -38,6 +40,7 @@ class MultiplayerManager {
         }
 
         this.syncInterval = null;
+        this.watchdogInterval = null;
     }
 
     isExternalHost() {
@@ -52,16 +55,16 @@ class MultiplayerManager {
         let customUrl = localStorage.getItem('catfish_railway_url') || '';
         let baseUrl = customUrl || window.CATFISH_SERVER_URL || '';
 
-        // Priority 1: If running directly on Express/Railway or localhost, auto-resolve to origin
+        // Priority 1: If running directly on Express/Railway host (not external iframe), auto-resolve to origin
         if (!customUrl && typeof window !== 'undefined' && window.location.protocol.startsWith('http')) {
             if (!this.isExternalHost()) {
                 baseUrl = window.location.origin;
             }
         }
 
-        // Priority 2: Fallback to global window.CATFISH_SERVER_URL
+        // Priority 2: Default Railway Server URL for itch.io / static hosting
         if (!baseUrl) {
-            baseUrl = window.CATFISH_SERVER_URL || '';
+            baseUrl = window.CATFISH_SERVER_URL || DEFAULT_RAILWAY_URL;
         }
 
         baseUrl = baseUrl ? baseUrl.replace(/\/$/, '') : '';
@@ -86,7 +89,7 @@ class MultiplayerManager {
                     reconnection: true,
                     reconnectionAttempts: Infinity,
                     reconnectionDelay: 1000,
-                    reconnectionDelayMax: 5000,
+                    reconnectionDelayMax: 4000,
                     timeout: 20000
                 });
                 this.setupSocketListeners();
@@ -101,6 +104,34 @@ class MultiplayerManager {
 
         this.fetchLeaderboard();
         this.setupUIEvents();
+        this.startConnectionWatchdog();
+    }
+
+    startConnectionWatchdog() {
+        if (this.watchdogInterval) clearInterval(this.watchdogInterval);
+        this.watchdogInterval = setInterval(() => {
+            if (!this.socket || !this.socket.connected) {
+                console.log('🔄 Watchdog: Connection dropped. Re-attempting Railway connection...');
+                this.reconnect();
+            } else {
+                try {
+                    this.socket.emit('client_ping');
+                } catch (e) {}
+            }
+        }, 4000);
+    }
+
+    reconnect() {
+        if (!this.socket) {
+            this.init();
+        } else if (!this.socket.connected) {
+            this.updateOnlineBadge('connecting');
+            try {
+                this.socket.connect();
+            } catch (e) {
+                this.init();
+            }
+        }
     }
 
     setupSocketListeners() {
@@ -113,10 +144,17 @@ class MultiplayerManager {
             this.joinLobby();
         });
 
+        this.socket.on('server_pong', () => {
+            if (!this.isOnline) {
+                this.isOnline = true;
+                this.updateOnlineBadge('online');
+            }
+        });
+
         this.socket.on('disconnect', () => {
             this.isOnline = false;
             this.updateOnlineBadge('offline');
-            console.log('🔴 Disconnected from Multiplayer Server.');
+            console.log('🔴 Disconnected from Multiplayer Server. Retrying via Watchdog...');
         });
 
         this.socket.on('connect_error', (err) => {
@@ -220,6 +258,31 @@ class MultiplayerManager {
                 this.showToast(`🌐 ${data.sender} tapped the tank glass!`);
             } else if (data.type === 'scrub' && this.app.tank) {
                 this.app.tank.scrubAt(data.x, data.y);
+            } else if (data.type === 'mating' && this.app.tank) {
+                this.app.tank.addHeartParticle(data.x || 400, data.y || 300);
+                this.showToast(`💖 ${data.sender} initiated a genetic breeding ritual!`);
+            } else if (data.type === 'release') {
+                this.showToast(`🌿 ${data.sender} released an Elder Frog-Fish (${data.fishName || 'Elder'})! (+1000 PTS)`);
+                if (window.gameAudio) window.gameAudio.playButtonBeep();
+            } else if (data.type === 'env_toggle' && this.app.tank) {
+                if (data.key === 'aerator') {
+                    this.app.tank.aeratorOn = data.value;
+                    const el = document.getElementById('aeratorBtn');
+                    if (el) el.classList.toggle('active', data.value);
+                    this.showToast(`🌐 ${data.sender} turned Aerator Pump ${data.value ? 'ON' : 'OFF'}`);
+                } else if (data.key === 'heater') {
+                    this.app.tank.heaterOn = data.value;
+                    const el = document.getElementById('heaterBtn');
+                    if (el) el.classList.toggle('active', data.value);
+                    this.showToast(`🌐 ${data.sender} turned Water Heater ${data.value ? 'ON' : 'OFF'}`);
+                } else if (data.key === 'light') {
+                    this.app.tank.lightOn = data.value;
+                    const el = document.getElementById('lightBtn');
+                    if (el) el.classList.toggle('active', data.value);
+                    this.showToast(`🌐 ${data.sender} turned Tank Light ${data.value ? 'ON' : 'OFF'}`);
+                }
+            } else if (data.type === 'poop' && this.app.tank) {
+                this.app.tank.addPoop(data.x, data.y);
             }
         });
 
@@ -581,7 +644,9 @@ class MultiplayerManager {
                 const drawX = f.lerpX;
                 const drawY = f.lerpY;
                 const size = f.baseSize || 38;
+                const stage = f.stage !== undefined ? f.stage : 3;
                 const palette = SPECIES_PALETTES[f.speciesId] || SPECIES_PALETTES.catfish;
+                const hasGolden = (f.traits || []).some(t => t === 'golden' || (t && t.includes && t.includes('Golden')));
 
                 ctx.save();
 
@@ -595,14 +660,109 @@ class MultiplayerManager {
                     ctx.font = '14px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.fillText('🦴', drawX, drawY + 5);
-                } else {
-                    // Holographic aura ring under remote player fish
-                    ctx.fillStyle = 'rgba(78, 205, 196, 0.14)';
-                    ctx.strokeStyle = 'rgba(78, 205, 196, 0.6)';
+                } else if (stage === 0) {
+                    // STAGE 0: EGG SAC REPLICATION
+                    const eggPulse = 1.0 + Math.sin(now * 0.005 + drawX) * 0.08;
+                    ctx.fillStyle = 'rgba(78, 205, 196, 0.25)';
+                    ctx.strokeStyle = '#4edcc4';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(drawX, drawY, 16 * eggPulse, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+
+                    // Inner Yolk Core
+                    ctx.fillStyle = hasGolden ? '#f39c12' : palette.light;
+                    ctx.beginPath();
+                    ctx.arc(drawX - 2, drawY - 1, 7 * eggPulse, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('🥚', drawX, drawY - 18);
+                } else if (stage === 1) {
+                    // STAGE 1: LARVA FRY REPLICATION
+                    ctx.save();
+                    ctx.translate(drawX, drawY);
+                    ctx.scale(f.facingLeft ? -1 : 1, 1);
+                    ctx.rotate(f.lerpAngle * 0.3);
+
+                    // Tail Fin Flutter
+                    const wiggle = Math.sin(now * 0.015 + drawX) * 5;
+                    ctx.fillStyle = palette.mid;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-18, -6 + wiggle);
+                    ctx.lineTo(-18, 6 + wiggle);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    // Tiny Fry Body
+                    ctx.fillStyle = hasGolden ? '#f1c40f' : palette.light;
+                    ctx.strokeStyle = palette.dark;
                     ctx.lineWidth = 1.5;
                     ctx.beginPath();
-                    ctx.arc(drawX, drawY, size * 0.9, 0, Math.PI * 2);
+                    ctx.ellipse(4, 0, 12, 7, 0, 0, Math.PI * 2);
                     ctx.fill(); ctx.stroke();
+
+                    // Eye
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.arc(10, -2, 3, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath(); ctx.arc(11, -2, 1.5, 0, Math.PI * 2); ctx.fill();
+
+                    ctx.restore();
+                } else if (stage === 2) {
+                    // STAGE 2: TADPOLE REPLICATION
+                    ctx.save();
+                    ctx.translate(drawX, drawY);
+                    ctx.scale(f.facingLeft ? -1 : 1, 1);
+                    ctx.rotate(f.lerpAngle * 0.3);
+
+                    const wiggle = Math.sin(now * 0.012 + drawX) * 7;
+                    ctx.fillStyle = palette.mid;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(-24, -9 + wiggle);
+                    ctx.lineTo(-24, 9 + wiggle);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = hasGolden ? '#f39c12' : palette.light;
+                    ctx.strokeStyle = palette.dark;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(5, 0, 16, 11, 0, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath(); ctx.arc(13, -3, 3.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#000000';
+                    ctx.beginPath(); ctx.arc(14, -3, 1.8, 0, Math.PI * 2); ctx.fill();
+
+                    ctx.restore();
+                } else {
+                    // STAGE 3 & 4: ADULT & ELDER FROG-FISH
+                    if (stage === 4) {
+                        // Elder Frog-Fish Glowing Golden/Emerald Aura
+                        ctx.save();
+                        ctx.shadowColor = '#f1c40f';
+                        ctx.shadowBlur = 18;
+                        ctx.fillStyle = 'rgba(241, 196, 15, 0.18)';
+                        ctx.strokeStyle = '#f1c40f';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(drawX, drawY, size * 1.1, 0, Math.PI * 2);
+                        ctx.fill(); ctx.stroke();
+                        ctx.restore();
+                    } else {
+                        // Holographic aura ring under remote player fish
+                        ctx.fillStyle = 'rgba(78, 205, 196, 0.14)';
+                        ctx.strokeStyle = 'rgba(78, 205, 196, 0.6)';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        ctx.arc(drawX, drawY, size * 0.9, 0, Math.PI * 2);
+                        ctx.fill(); ctx.stroke();
+                    }
 
                     // Fish Body Frame
                     ctx.save();
@@ -612,7 +772,7 @@ class MultiplayerManager {
 
                     // Tail Fin Motion
                     const wiggle = Math.sin(now * 0.009 + (f.x || 0)) * 8;
-                    ctx.fillStyle = palette.mid;
+                    ctx.fillStyle = hasGolden ? '#f39c12' : palette.mid;
                     ctx.beginPath();
                     ctx.moveTo(0, 0);
                     ctx.lineTo(-size * 0.95, -size * 0.45 + wiggle);
@@ -620,14 +780,57 @@ class MultiplayerManager {
                     ctx.closePath();
                     ctx.fill();
 
-                    // Main Oval Body
+                    // Main Body
                     const bodyRadius = f.isPufferInflated ? size * 0.78 : size * 0.58;
-                    ctx.fillStyle = palette.light;
-                    ctx.strokeStyle = palette.dark;
+                    ctx.fillStyle = hasGolden ? '#f1c40f' : palette.light;
+                    ctx.strokeStyle = hasGolden ? '#d35400' : palette.dark;
                     ctx.lineWidth = 2;
                     ctx.beginPath();
                     ctx.ellipse(0, 0, bodyRadius * 1.1, bodyRadius * 0.78, 0, 0, Math.PI * 2);
                     ctx.fill(); ctx.stroke();
+
+                    // Species-Specific Features
+                    if (f.speciesId === 'catfish' || stage >= 3) {
+                        ctx.strokeStyle = palette.dark;
+                        ctx.lineWidth = 2;
+                        const wWave = Math.sin(now * 0.008) * 3;
+                        ctx.beginPath();
+                        ctx.moveTo(bodyRadius * 0.4, -bodyRadius * 0.2);
+                        ctx.quadraticCurveTo(bodyRadius * 1.0, -bodyRadius * 0.6 + wWave, bodyRadius * 1.5, -bodyRadius * 0.7);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(bodyRadius * 0.4, bodyRadius * 0.2);
+                        ctx.quadraticCurveTo(bodyRadius * 1.0, bodyRadius * 0.6 - wWave, bodyRadius * 1.5, bodyRadius * 0.7);
+                        ctx.stroke();
+                    }
+
+                    if (f.speciesId === 'angler') {
+                        ctx.strokeStyle = '#483d73';
+                        ctx.lineWidth = 2.5;
+                        ctx.beginPath();
+                        ctx.moveTo(0, -bodyRadius * 0.7);
+                        ctx.quadraticCurveTo(bodyRadius * 0.4, -bodyRadius * 1.6, bodyRadius * 0.8, -bodyRadius * 1.4);
+                        ctx.stroke();
+                        ctx.fillStyle = '#00ffff';
+                        ctx.shadowColor = '#00ffff';
+                        ctx.shadowBlur = 12;
+                        ctx.beginPath();
+                        ctx.arc(bodyRadius * 0.8, -bodyRadius * 1.4, 6, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+
+                    if (f.speciesId === 'piranha') {
+                        ctx.fillStyle = '#ffffff';
+                        for (let i = -1; i <= 1; i++) {
+                            ctx.beginPath();
+                            ctx.moveTo(bodyRadius * 0.5 + i * 4, bodyRadius * 0.2);
+                            ctx.lineTo(bodyRadius * 0.5 + i * 4 - 2, bodyRadius * 0.4);
+                            ctx.lineTo(bodyRadius * 0.5 + i * 4 + 2, bodyRadius * 0.4);
+                            ctx.closePath();
+                            ctx.fill();
+                        }
+                    }
 
                     // Eye & Expression
                     ctx.fillStyle = '#ffffff';
@@ -639,12 +842,30 @@ class MultiplayerManager {
                     ctx.arc(bodyRadius * 0.55, -bodyRadius * 0.25, 2, 0, Math.PI * 2);
                     ctx.fill();
 
+                    // Elder Frog-Fish Legs & Crown
+                    if (stage === 4) {
+                        ctx.fillStyle = '#27ae60';
+                        // Frog legs
+                        ctx.beginPath();
+                        ctx.ellipse(-bodyRadius * 0.3, bodyRadius * 0.7, 10, 5, Math.PI * 0.25, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.ellipse(bodyRadius * 0.3, bodyRadius * 0.7, 10, 5, -Math.PI * 0.25, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
                     ctx.restore();
 
-                    // Species Icon Floating Badge
-                    ctx.font = '16px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(palette.icon, drawX - size * 0.6, drawY - size * 0.4);
+                    // Floating Badges
+                    if (stage === 4) {
+                        ctx.font = '20px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('👑', drawX, drawY - size * 0.95);
+                    } else {
+                        ctx.font = '16px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(palette.icon, drawX - size * 0.6, drawY - size * 0.4);
+                    }
                 }
 
                 // -------------------------------------------------------------
@@ -652,19 +873,20 @@ class MultiplayerManager {
                 // -------------------------------------------------------------
                 const headY = drawY - size * 0.9 - 14;
                 const nameLabel = `🌐 ${player.name}`;
-                const subLabel = `${f.name || 'Fish'} (Gen ${f.generation || 1})`;
+                const stageName = f.stage === 0 ? 'Egg' : f.stage === 1 ? 'Fry' : f.stage === 2 ? 'Tadpole' : f.stage === 4 ? 'Elder' : 'Adult';
+                const subLabel = `${f.name || 'Fish'} (${stageName} | Gen ${f.generation || 1})`;
 
                 ctx.save();
                 ctx.font = "bold 11px 'Share Tech Mono', monospace";
                 const nameWidth = ctx.measureText(nameLabel).width;
-                const pillWidth = Math.max(88, nameWidth + 18);
+                const pillWidth = Math.max(92, nameWidth + 18);
                 const pillHeight = 20;
                 const pillX = drawX - pillWidth / 2;
                 const pillY = headY - 22;
 
                 // Glowing Dark Capsule Container
                 ctx.fillStyle = 'rgba(5, 12, 18, 0.88)';
-                ctx.strokeStyle = '#4edcc4';
+                ctx.strokeStyle = stage === 4 ? '#f1c40f' : '#4edcc4';
                 ctx.lineWidth = 1.5;
                 ctx.shadowColor = '#000';
                 ctx.shadowBlur = 6;
@@ -676,14 +898,14 @@ class MultiplayerManager {
                 // Player Handle Text inside Pill
                 ctx.fillStyle = '#ffffff';
                 ctx.textAlign = 'center';
-                ctx.shadowColor = '#4edcc4';
+                ctx.shadowColor = stage === 4 ? '#f1c40f' : '#4edcc4';
                 ctx.shadowBlur = 4;
                 ctx.fillText(nameLabel, drawX, pillY + 14);
 
                 // Subtitle Fish Name & Generation
                 ctx.shadowBlur = 0;
                 ctx.font = "10px 'Share Tech Mono', monospace";
-                ctx.fillStyle = '#4edcc4';
+                ctx.fillStyle = stage === 4 ? '#f1c40f' : '#4edcc4';
                 ctx.fillText(subLabel, drawX, pillY + 32);
 
                 // Health Bar (if active)
